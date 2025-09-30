@@ -55,7 +55,7 @@ The application will consist of server and client components:
 
 ## Work For Team Members
 ### Alex Lehner
-* The client component will focus on command parsing, message display, and sending requests to server.
+* The client component will focus on command parsing, async message display, and sending requests to server.
 ### Mahmoud Anklis 
 * Responsible for designing and implmenting the SQL schema, and authentacation system.
 ### Mohamad Alkahil
