@@ -54,11 +54,11 @@ The application will consist of server and client components:
 
 ## Work For Team Members
 ### Alex Lehner
-* The client component will focus on command parsing, async message display, and sending requests to server.
+* Responsible for the client component, which will focus on command parsing, async message display, and sending requests to server.
 ### Mahmoud Anklis 
-* Responsible for designing and implmenting the SQL schema, and authentacation system.
+* Responsible for designing and implmenting active user tracking, data persistence, and the authentacation system.
 ### Mohamad Alkahil
-* The server component will manage websocket connections, message routing, and database transactions.
+* Resposnible for the server component, which will manage websocket connections, message routing, and database transactions.
 
 
 ## Tentative Plan (TBD)
