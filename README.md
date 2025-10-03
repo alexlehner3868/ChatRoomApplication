@@ -60,11 +60,11 @@ Our team will work in parallel on client, server, and persistence components, wi
 ### Breakdown of Team Member Responsibilities:
 #### Alex – Client Development 
 * Implement the command-line interface with support for commands (/create, /join, /kick, etc.).
+* Design and implement UI.
 * Handle real-time message display and asynchronous updates.
 * Manage client-side session state, including authentication tokens and the list of active rooms.
 * Collaborate with Mohamad to define message and request/response protocols between client and server.
-* Implement UI design to ensure application looks complete. 
-
+ 
 #### Mahmoud – Database and Authentication
 * Design and implement SQL database schema for users, rooms, and messages.
 * Implement user authentication (registration, login, password hashing, token issuance).
