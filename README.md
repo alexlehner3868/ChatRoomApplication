@@ -53,15 +53,6 @@ Building the application requires implementing a server, backend and front which
 * After login, Server provides client with a token for future requests.
 * Client and Server use secure Websockets for real-time message broadcasting.
 
-## Work For Team Members
-### Alex Lehner
-* Responsible for the client component, which will focus on command parsing, async message display, and sending requests to server.
-### Mahmoud Anklis 
-* Responsible for designing and implmenting active user tracking, data persistence, and the authentacation system.
-### Mohamad Alkahil
-* Resposnible for the server component, which will manage websocket connections, message routing, and database transactions.
-
-
 ## Tentative Plan
 
 Our team will work in parallel on client, server, and persistence components, with early agreement on message protocol and database schema to ensure smooth integration. Development will proceed in 4 phases: Parallel setup, integration, feature completion, and polishing & testing.
@@ -72,6 +63,7 @@ Our team will work in parallel on client, server, and persistence components, wi
 * Handle real-time message display and asynchronous updates.
 * Manage client-side session state, including authentication tokens and the list of active rooms.
 * Collaborate with Mohamad to define message and request/response protocols between client and server.
+* Implement UI design to ensure application looks complete. 
 
 #### Mahmoud – Database and Authentication
 * Design and implement SQL database schema for users, rooms, and messages.
