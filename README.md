@@ -2,7 +2,7 @@
 
 ## Team Members
 * Alex Lehner - 1004947506
-* Mahmoud Anklis - 
+* Mahmoud Anklis - 1005198313
 * Mohamad Alkahil - 1005263448
   
 ## Motivation 
@@ -61,4 +61,64 @@ The application will consist of server and client components:
 * Resposnible for the server component, which will manage websocket connections, message routing, and database transactions.
 
 
-## Tentative Plan (TBD)
+## Tentative Plan
+
+Our team will work in parallel on client, server, and persistence components, with early agreement on message protocol and database schema to ensure smooth integration. Development will proceed in 4 phases: Parallel setup, integration, feature completion, and polishing and testing.
+
+### Breakdown of Team Member Responsibilities:
+#### Alex – Client Development 
+* Implement the command-line interface with support for commands (/create, /join, /kick, etc.).
+* Handle real-time message display and asynchronous updates.
+* Manage client-side session state, including authentication tokens and the list of active rooms.
+* Collaborate with Mohamad to define message and request/response protocols between client and server.
+
+#### Mahmoud – Database and Authentication
+* Design and implement SQL database schema for users, rooms, and messages.
+* Implement user authentication (registration, login, password hashing, token issuance).
+* Manage data persistence logic (storing messages, users, and room details).
+* Coordinate with Mohamad  to expose persistence and authentication functionality through the server API.
+
+#### Mohamad – Server Development
+* Build the server-side application that manages WebSocket connections and routes messages between clients.
+* Implement chat room logic (creation, joining, kicking users, room deletion).
+* Handle real-time broadcasting of messages to connected users within each room.
+* Ensure secure client-server communication using HTTPS for login/registration and WebSockets for messaging.
+
+
+### Collaboration Strategy and Phases: 
+#### 1. Parallel Setup Phase: 
+Each member will develop and test their components individually, using mock clients/servers where necessary.
+
+##### Client (UI & Command Parsing)
+* Build a rough terminal UI with states to navigate between login, rooms, and chat views.
+* Implement command parsing (/create, /join, /kick, etc.) and client-side session handling.
+* Enable async send/receive of messages and display in real time.
+
+##### Persistence & Authentication
+* Set up the SQL database with schemas for users, rooms, and messages.
+* Implement database functions (add_room, login_user, message persistence).
+* Handle user authentication with password hashing and token issuance.
+
+##### Server (Networking & Message Routing)
+* Define the message protocol and set up the network server to handle multiple clients concurrently.
+* Manage WebSocket connections for real-time message broadcasting.
+* Implement basic room management (create/join, ownership tracking).
+
+#### 2. Integration Phase: 
+* Server connected to database: authentication, persistent message storage, and room/user management.
+* Room management and message broadcasting finalized with persistence and concurrency.
+* Client UI connected to server: sending and receiving real-time messages over WebSockets.
+
+#### 3. Core Features Completion Phase: 
+* Concurrency finalized: multiple rooms with multiple users, safe concurrent message handling.
+* Room ownership logic: owners can kick/remove users and delete rooms.
+* Persistent messaging: saving and retrieving chat history.
+* Chat view: polished, real-time updates in the terminal.
+* Command parsing fully tested and integrated.
+
+#### 4. Polishing and Testing Phase: 
+* Comprehensive testing of user flows (sign up, login, room creation/join, messaging, admin actions).
+* Usability improvements in terminal UI.
+* Improving error handling.
+* Ensuring security practices (password policies, token-based auth, secure sockets).
+
