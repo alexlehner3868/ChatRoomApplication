@@ -19,6 +19,7 @@ The application will consist of server and client components:
 * The client component will be a command line interface that will allow users to chat in rooms with other users. 
 
 ## Key Features
+Building the application requires implementing a server, backend and front which constitutes an amount of work commensurate with a team of 3 people. Specifics of features required are as follows: 
 ### Account
 * Secure user registration with system unique username and password that meets defined password policy (i.e minimum 8 characters, one special character, and one uppercase letter).
 * Account login, logout, and deletion functionality.
