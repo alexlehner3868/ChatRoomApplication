@@ -63,7 +63,7 @@ Our team will work in parallel on client, server, and persistence components, wi
 * Design and implement UI.
 * Handle real-time message display and asynchronous updates.
 * Manage client-side session state, including authentication tokens and the list of active rooms.
-* Work with Mahmoud on authentication and token issuance.
+* Work with Mahmoud on token storage.
 * Collaborate with Mohamad to define message and request/response protocols between client and server.
  
 #### Mahmoud – Database and Authentication
