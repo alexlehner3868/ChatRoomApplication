@@ -55,7 +55,7 @@ Building the application requires implementing a server, backend and frontend wh
 
 ## Tentative Plan
 
-Our team will work in parallel on client, server, and persistence components, with early agreement on message protocol and database schema to ensure smooth integration. Development will proceed in 4 phases: Parallel setup, integration, feature completion, and polishing & testing.
+Our team will work in parallel on client, server, and persistence components, with early agreement on message protocol and database schema to ensure smooth integration. Development will proceed in 4 phases: parallel setup, integration, feature completion, and polishing & testing.
 
 ### Breakdown of Team Member Responsibilities:
 #### Alex – Client Development 
