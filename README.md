@@ -12,14 +12,14 @@ As nascent Rust fans, our motivation for this project is two fold; we want to le
 In addition to the goal of personal development described above, we are also trying to fill a gap in the Rust ecosystem - our project will serve as a completed reference project for future learners. While a quick google search yields a few Rust chat rooms, none provide a complete example including a terminal-based UI, persistent users and messages, user authentication, and multi-room support. Our project will provide future Rust learners with a concrete example of a terminal-based full-stack application with an emphasis on Rust best practices. 
 
 ## Objective
-We are making a command line application that will allow a user to communicate with other users in various chat rooms. The project is aiming to provide secure messaging delivered as quickly as possible. The messages, users and rooms are to be persistent. The command line interface should be easy to navigate and understand. The system should be able to handle multiple concurrent chat rooms with multiple users in each room.
+We are making a command line application that will allow a user to communicate with other users in various chat rooms. The project aims to provide secure messaging delivered as quickly as possible. The messages, users and rooms are to be persistent. The command line interface would be easy to navigate and understand. The system would be able to handle multiple concurrent chat rooms with multiple users in each room.
 
 The application will consist of server and client components: 
 * The server will handle database interactions, message broadcasting, and client requests.
 * The client component will be a command line interface that will allow users to chat in rooms with other users. 
 
 ## Key Features
-Building the application requires implementing a server, backend and front which constitutes an amount of work commensurate with a team of 3 people. Specifics of features required are as follows: 
+Building the application requires implementing a server, backend and frontend which constitutes an amount of work commensurate with a team of 3 people. Specifics of features required are as follows: 
 ### Account
 * Secure user registration with system unique username and password that meets defined password policy (i.e minimum 8 characters, one special character, and one uppercase letter).
 * Account login, logout, and deletion functionality.
@@ -50,8 +50,8 @@ Building the application requires implementing a server, backend and front which
 ### Security 
 * Client uses HTTPS to communicate with server during registration/login.
 * Passwords are hashed before storage.
-* After login, Server provides client with a token for future requests.
-* Client and Server use secure Websockets for real-time message broadcasting.
+* After login, server provides client with a token for future requests.
+* Client and server use secure Websockets for real-time message broadcasting.
 
 ## Tentative Plan
 
