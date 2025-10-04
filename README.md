@@ -8,7 +8,7 @@
 ## Motivation 
 As nascent Rust fans, our motivation for this project is two fold; we want to learn and develop our own skills and while doing so create a project that will help future Rust learners upskill more efficiently. We are driven to increase the breadth of our knowledge in Rust, so we looked for a project that would showcase Rust's versatility to be used across all parts of an application (backend, frontend, database integration).  We are all also interested in systems programming and sought to find a project to deepen our understanding of core concepts, such as communication protocols, asynchronous concurrency, persistent storage, user authentication, and building a real time UI. The project we chose is a terminal-based multi-user chat room with real time and persistent messaging as it will provide us with hands-on experience in Rust and systems programming. This course is a perfect fit for this project as Rust's ownership rules prevent data races and ensure memory safety, which are imperative for a chat room application handling concurrent users and rooms. 
 
-## Filling the Gap in The Rust Eco System - Upskilling Future Rustaceans
+## Filling the Gap in the Rust Eco System - Upskilling Future Rustaceans
 In addition to the goal of personal development described above, we are also trying to fill a gap in the Rust ecosystem - our project will serve as a learning oriented reference. While a quick google search yields a few Rust chat rooms, none provide a complete example including a terminal-based UI, persistent users and messages, user authentication, and multi-room support. Our project will provide future Rust learners with a concrete example of a terminal-based full-stack application with an emphasis on Rust best practices. 
 
 ## Objective
