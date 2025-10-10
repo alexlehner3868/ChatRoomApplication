@@ -2,7 +2,6 @@ Todo
 
 1. Login / Sign up 
 2. Different commands 
-     -Help 
     -New room (user + password) -> make sure room is unique 
     -list room 
     -Active people in room 
@@ -16,5 +15,6 @@ Todo
 7. Integrate loading old messages with people in database 
 8. Chat room formatting ">" "[]" colors
 9. Formatting of other things too
+10. I want help to take an input of which where the user is and then will turn avaialbe commands a different color so you can see that they are available to use
 
         
