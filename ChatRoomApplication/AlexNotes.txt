@@ -1,0 +1,20 @@
+Todo
+
+1. Login / Sign up 
+2. Different commands 
+     -Help 
+    -New room (user + password) -> make sure room is unique 
+    -list room 
+    -Active people in room 
+    - Room members
+    - Kick member from room (if admin)
+    -leave room
+3. Load old messages on chat room entrance 
+4. Set up async message writting 
+5. Integrate messaging with backend 
+6. Integrate people in room with db 
+7. Integrate loading old messages with people in database 
+8. Chat room formatting ">" "[]" colors
+9. Formatting of other things too
+
+        
