@@ -20,16 +20,39 @@ fn login() -> bool {
 
 
 fn print_help() {
-    // TODO --> Format help so it has all commands possible and seperates it by section (general(help, quit), intial( login, sign up), room manamgment etc)
-    println!("");
-    println!("[Help Menu]");
-    println!(r"/login                        Login with known username and passowrd");
-    println!(r"/sign_up                      Create a username and password");
-    println!(r"/quit                         Quit the application");
-    println!(r"/help                         See list of available commands");
+    println!();
+    println!("==============================");
+    println!("           HELP MENU          ");
+    println!("==============================\n");
 
-    println!()
+    println!("General Commands:");
+    println!("  /help              Show this help menu");
+    println!("  /quit              Quit the chat room application\n");
+
+    println!("Authentication Commands:");
+    println!("  /sign_up           Create a new username and password");
+    println!("  /login             Login with your username and password");
+    println!("  /logout            Logout of the chatroom application\n");
+
+    println!("Navigation Commands:");
+    println!("  /all_rooms         Show all available chat rooms");
+    println!("  /active_rooms      Show all active chat rooms");
+    println!("  /create            Create a new chat room (usage: /create <room_id> <password>)");
+    println!("  /join              Join an existing chat room (usage: /join <room_id> <password>)");
+    println!("  /leave             Leave the current chat room\n");
+
+    println!("Room Management Commands:");
+    println!("  /active_users      Show all active users in the current room");
+    println!("  /kick              Remove a user from your room. Need to own chat room (usage: /kick <username>)");
+    println!("  /delete            Delete your chat room (owner only) (usage: /delete <room_id>\n");
+
+    println!("Messaging Commands:");
+    println!("  <message>          Type and send a message to your current room\n");
+
+    println!("==============================");
+
 }
+
 
 fn alex_chat_room_loop(){
     println!("[Welcome to the Rust Chat Room Application!]");
@@ -71,5 +94,5 @@ fn alex_chat_room_loop(){
 }
 
 fn main() {
-    alex_chat_room_loop();
+    //alex_chat_room_loop();
 }
