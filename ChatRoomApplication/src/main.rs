@@ -154,7 +154,7 @@ fn leave_room(room_id: &str) {
 }
 
 fn show_active_users(room_id: &str) {
-    // TODO: Connect to db to get list of active users
+    // TODO: Connect to db to get list of active users ALEX
     println!("[Active Users in {}]", room_id);
 
     // print out list of users
@@ -162,7 +162,7 @@ fn show_active_users(room_id: &str) {
 
 
 fn in_chat_room(room_id: &str){
-    // TODO --> Need to connect to the server and make async
+    // TODO --> Need to connect to the server and make async ALEX
     println!("[Connected to {}]", room_id);
 
     loop {
