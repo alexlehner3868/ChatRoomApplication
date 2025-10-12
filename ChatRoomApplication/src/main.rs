@@ -141,6 +141,26 @@ fn kick_user(args: Vec<&str>) {
     // Communicate with the server and the database to remove the user from the room
 }
 
+fn leave_room(room_id: &str) {
+    // TODO: connect to server and database and disconnect from room ALEX
+    // -tell server that the user has left the room
+    // Update the databse
+    // broascast message to the chatroom 
+
+    println!("[Leaving Room - {}]", room_id);
+
+    // Verify that we've left the room 
+    println!("[Returned to Lobby]");
+}
+
+fn show_active_users(room_id: &str) {
+    // TODO: Connect to db to get list of active users
+    println!("[Active Users in {}]", room_id);
+
+    // print out list of users
+}
+
+
 fn in_chat_room(room_id: &str){
     // TODO --> Need to connect to the server and make async
     println!("[Connected to {}]", room_id);
@@ -166,10 +186,10 @@ fn in_chat_room(room_id: &str){
                 print_help();
             }
             "/leave" =>{
-                // TODO ALEX
+                leave_room(room_id);
             }
             "/active_users" => {
-                //TODO ALEX
+                show_active_users(room_id);
             }
             "/kick" => {
                 kick_user(args);

@@ -1,8 +1,5 @@
 Todo
 1. Need to create a struct to track person username and where they are 
-2. Different commands 
-    -Active people in room 
-    -leave room
 3. Load old messages on chat room entrance 
 4. Set up async message writting 
 5. Integrate messaging with backend 
