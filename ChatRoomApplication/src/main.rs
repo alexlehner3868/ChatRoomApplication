@@ -54,7 +54,140 @@ fn print_help() {
 }
 
 fn logout() {
-    // TODO ---> set the user as no longer active. will need some struct or something to know who the user is
+    // TODO ---> set the user as no longer active. will need some struct or something to know who the user is ALEX
+}
+
+fn show_all_rooms() {
+    // TODO (need to query the Database) ALEX
+    println!("[All Rooms]");
+    // print list of rooms
+}
+
+fn show_active_rooms() {
+    // TODO --> need to query list of rooms and active users in each room  ALEX
+    println!("[Active Rooms]");
+    // print active rooms 
+    // - Room_Name (# Active Users)
+}
+
+fn create_room(args: Vec<&str>) {
+    // TODO --> Need to connect to database?  ALEX
+    
+    // Too few arguments provided
+    if args.len() < 3 {
+        println!("[Usage: /create <room_id> <password>]");
+        return;
+    }
+
+    let room_id= args[1];
+    let password = args[2];
+
+    // Check that the room_name is unique and valid 
+    // Check that the password is good 
+
+    // Call database (or server) to create the room and set the owner to this user
+
+    println!("[Creating Room - {}]", room_id);
+}
+
+fn delete_room(args: Vec<&str>){
+    // TODO -- connect to database and server ALEX
+
+    if args.len() < 2 {
+        println!("[Usage: /delete <room_id>]");
+        return;
+    }
+
+    // Check that room exists 
+    // Check that this user is the owner 
+
+    // Kick out all users from the current room. loop through all users and call kick function
+    // Delete room
+
+}
+
+fn join_room(args: Vec<&str>) {
+    // TODO need to conect to backend and database ALEX
+
+    // Too few arguments provided
+    if args.len() < 3 {
+        println!("[Usage: /join <room_id> <password>]");
+        return;
+    }
+    let room_id = args[1];
+    let passowrd = args[2];
+
+    // Check that room exists and passowrd matches
+    let valid_credentials = true;
+
+    if !valid_credentials {
+        println!("[Invalid Room ID or Password]");
+        return;
+    }
+    // Mark user as active in the database
+    // Connect user to chatroom and check that connections was successful. it if was then print message and go to in chat_room
+    in_chat_room(room_id);
+}
+
+fn kick_user(args: Vec<&str>) {
+    // TODO - connect to server and database ALEX
+
+    // Too few arguments provided
+    if args.len() < 2 {
+        println!("[Usage: /kick <username>]");
+        return;
+    }
+    // Check that the user is the owner of the database (can create a help function)
+    // Communicate with the server and the database to remove the user from the room
+}
+
+fn in_chat_room(room_id: &str){
+    // TODO --> Need to connect to the server and make async
+    println!("[Connected to {}]", room_id);
+
+    loop {
+        print!("{}> ", room_id);
+        std::io::stdout().flush().unwrap();
+
+        let mut user_input = String::new();
+        if std::io::stdin().read_line(&mut user_input).is_err() {
+            continue;
+        }
+
+        let input = user_input.trim();
+        if input.is_empty() {
+            continue;
+        }
+
+        let args: Vec<&str> = input.split_whitespace().collect();
+
+        match args[0] {
+            "/help" => {
+                print_help();
+            }
+            "/leave" =>{
+                // TODO ALEX
+            }
+            "/active_users" => {
+                //TODO ALEX
+            }
+            "/kick" => {
+                kick_user(args);
+            }
+            "/delete" => {
+                delete_room(args);
+            }
+            "/quit" => {
+                println!("[Quitting Program]");
+                std::process::exit(1);
+            }
+            msg => {
+                //send message ALEX
+            }
+        }
+
+    }
+
 }
 
 fn alex_chat_room_loop() {
@@ -99,22 +232,36 @@ fn alex_chat_room_loop() {
     println!("[Connected to Chat Room Lobby]");
 
     loop {
-        print!("> ");
+        println!("");
+        print!("[Lobby] > ");
         io::stdout().flush().unwrap();
 
         let mut user_input = String::new();
-
+        
         match io::stdin().read_line(&mut user_input) {
             Ok(_) => {
-                let user_input = user_input.trim();
+                let input = user_input.trim();
+                let args: Vec<&str> = input.split_whitespace().collect();
 
-                match user_input {
+                match args[0] {
                     "/help" => {
                         print_help();
                     }
                     "/quit" => {
                         println!("[Quitting Program]");
                         std::process::exit(1);
+                    }
+                    "/all_rooms" => {
+                        show_all_rooms();
+                    }
+                    "/active_rooms" => {
+                        show_active_rooms();
+                    }
+                    "/create" => {
+                        create_room(args);
+                    }
+                    "/join" => {
+                        join_room(args);
                     }
                     _ => {
                         println!("[Unknown Command - get /help]");
