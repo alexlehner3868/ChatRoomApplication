@@ -1,40 +1,10 @@
+
 use std::io::{self, Write};
-use colored::*;
+mod color_formatting;
+use color_formatting::*;
 
-// --------------------
-// Helper functions
-// --------------------
-fn header(text: &str) {
-    println!("{}", format!("[{}]", text).magenta().bold());
-}
-
-fn success(text: &str) {
-    println!("{}", format!("[{}]", text).green());
-}
-
-fn error(text: &str) {
-    println!("{}", format!("[{}]", text).red());
-}
-
-fn warning(text: &str) {
-    println!("{}", format!("[{}]", text).yellow());
-}
-
-fn info(text: &str) {
-    println!("{}", text);
-}
-
-fn user_message(username: &str, message: &str) {
-    println!("{}", format!("{}: {}", username, message).blue());
-}
-
-fn my_message(message: &str) {
-    println!("{}", format!("You: {}", message));
-}
-
-fn sign_up() -> bool {
+fn sign_up() -> bool { //TODO connect to database (and server?)
     let mut signed_up = false;
-    println!("");
     header("Sign Up");
     info("Please enter a username (type /quit to cancel):");
 
@@ -62,7 +32,7 @@ fn sign_up() -> bool {
             continue;
         }
 
-        // Placeholder: check if username exists
+        // TODO - Check to make sure that user doenst already exist
         let username_exists = false;
         if username_exists {
             error("Username already exists");
@@ -101,14 +71,13 @@ fn sign_up() -> bool {
 
         if !password_valid {
             error("Password does not meet policy requirements");
-            println!("");
             continue;
         }
 
         break password.to_string();
     };
 
-    // Placeholder: create account in database
+    // TODO - Create account. Hash and add the database
     let account_created = true;
 
     if account_created {
@@ -117,14 +86,15 @@ fn sign_up() -> bool {
     } else {
         error("Error creating account — please try again later");
     }
-
-    println!("");
+    // TODO --> log the user in
     signed_up
 }
 
 fn login() -> bool {
     let mut login = false;
     login = true;
+
+    // TODO --> Check that user exists and password is right. if yes, log them in (do i need to mark them as active in db)
     success("Login Successful");
     login
 }
@@ -150,12 +120,13 @@ fn print_help() {
     println!("  /active_rooms      Show all active chat rooms");
     println!("  /create            Create a new chat room (usage: /create <room_id> <password>)");
     println!("  /join              Join an existing chat room (usage: /join <room_id> <password>)");
-    println!("  /leave             Leave the current chat room\n");
+    println!("  /delete            Delete your chat room (owner only) (usage: /delete <room_id>)\n");
+
 
     println!("Room Management Commands:");
     println!("  /active_users      Show all active users in the current room");
     println!("  /kick              Remove a user from your room. Need to own chat room (usage: /kick <username>)");
-    println!("  /delete            Delete your chat room (owner only) (usage: /delete <room_id>)\n");
+    println!("  /leave             Leave the current chat room\n");
 
     println!("Messaging Commands:");
     println!("  <message>          Type and send a message to your current room\n");
@@ -164,35 +135,47 @@ fn print_help() {
 }
 
 fn logout() {
-    // TODO: mark user as inactive
+    // TODO: mark user as inactive? 
 }
 
 fn show_all_rooms() {
     header("All Rooms");
+    // TODO connect to db and print all rooms 
 }
 
 fn show_active_rooms() {
     header("Active Rooms");
+    // TODO connect to database and get list of each room. get number of each person in each room
 }
 
 fn create_room(args: Vec<&str>) {
+    // TODO
     if args.len() < 3 {
         warning("Usage: /create <room_id> <password>");
         return;
     }
 
     let room_id = args[1];
+    // Todo - cehck that room name doenst already exist. Add into db the room name and password. 
     success(&format!("Creating Room - {}", room_id));
 }
 
 fn delete_room(args: Vec<&str>){
+    // TODO 
     if args.len() < 2 {
         warning("Usage: /delete <room_id>");
         return;
     }
+    let room_id = args[1];
+    // TODO check that room name exists. 
+    // TODO check that the current user is the owner of the room 
+    // TODO remove "kick" all active users from the room 
+    // TODO delete the room from the db 
+    success(&format!("Deleting Room - {}", room_id));
 }
 
 fn join_room(args: Vec<&str>) {
+    // TODO ALEX
     if args.len() < 3 {
         warning("Usage: /join <room_id> <password>");
         return;
@@ -200,39 +183,46 @@ fn join_room(args: Vec<&str>) {
 
     let room_id = args[1];
     let valid_credentials = true;
-
+    // TODO check that room exists and password matches
     if !valid_credentials {
         error("Invalid Room ID or Password");
         return;
     }
-
+    // todo join the room
     in_chat_room(room_id);
 }
 
 fn kick_user(args: Vec<&str>) {
+    // TODO ALEX
     if args.len() < 2 {
         warning("Usage: /kick <username>");
         return;
     }
+    // TODO check that the user is the owner 
+    // TODO check that the user is an active user
+    // TODO remove the user from the room (communicate with server and db)
 }
 
-// --------------------
-// Room Functions
-// --------------------
+
 fn leave_room(room_id: &str) {
+    // TODO Communicate with server? and mark as left in the database
     warning(&format!("Leaving Room - {}", room_id));
     success("Returned to Lobby");
 }
 
 fn show_active_users(room_id: &str) {
     header(&format!("Active Users in {}", room_id));
+    // TODO get list of active users from the database (ALEX)
 }
 
 fn in_chat_room(room_id: &str){
+    // TODO
+    // Connect to the server of the room to get and recieve messages
+    // TODO set up the async message printing
     success(&format!("Connected to {}", room_id));
 
     loop {
-        print!("{}", format!("[{}]> ", room_id).cyan());
+        system_prompt(&format!("[{}]> ", room_id));
         io::stdout().flush().unwrap();
 
         let mut user_input = String::new();
@@ -249,30 +239,31 @@ fn in_chat_room(room_id: &str){
 
         match args[0] {
             "/help" => print_help(),
-            "/leave" => leave_room(room_id),
+            "/leave" => {
+                leave_room(room_id);
+                break;
+            }
             "/active_users" => show_active_users(room_id),
-            "/kick" => kick_user(args),
-            "/delete" => delete_room(args),
+            "/kick" => kick_user(args), 
             "/quit" => {
                 warning("Quitting Program");
                 std::process::exit(1);
             }
             _msg => {
-                // send message placeholder
+                // SEND messages TODO
             }
         }
     }
 }
 
-// --------------------
-// Main Loop
-// --------------------
+
 fn alex_chat_room_loop() {
     success("Welcome to the Rust Chat Room Application!");
     let mut logged_in = false;
 
     while !logged_in {
-        print!("{}", "[Please /login or /sign_up or get /help] > ".cyan());
+        info("[Please /login or /sign_up or get /help]");
+        system_prompt(">");
         io::stdout().flush().unwrap();
 
         let mut input = String::new(); 
@@ -296,7 +287,7 @@ fn alex_chat_room_loop() {
     success("Connected to Chat Room Lobby");
 
     loop {
-        print!("{}", "[Lobby] > ".cyan());
+        system_prompt("[Lobby] > ");
         io::stdout().flush().unwrap();
 
         let mut user_input = String::new();
@@ -317,6 +308,7 @@ fn alex_chat_room_loop() {
             "/all_rooms" => show_all_rooms(),
             "/active_rooms" => show_active_rooms(),
             "/create" => create_room(args.clone()),
+            "/delete" => delete_room(args.clone()),
             "/join" => join_room(args.clone()),
             _ => error("Unknown Command - get /help"),
         }
