@@ -9,7 +9,7 @@ use color_formatting::*;
 use chat_client::ChatClient;
 
 
-fn sign_up(client: &mut ChatClient) -> bool { //TODO connect to database (and server?)
+fn sign_up(client: &mut ChatClient) -> bool { 
     header("Sign Up");
     info("Please enter a username (type /quit to cancel):");
 
@@ -88,8 +88,7 @@ fn sign_up(client: &mut ChatClient) -> bool { //TODO connect to database (and se
 fn login() -> bool {
     let mut login = false;
     login = true;
-
-    // TODO --> Check that user exists and password is right. if yes, log them in (do i need to mark them as active in db)
+    //TODO connec to chat client ALEX
     success("Login Successful");
     login
 }
@@ -130,21 +129,24 @@ fn print_help() {
 }
 
 fn logout() {
-    // TODO: mark user as inactive? 
+    // TODO: mark user as inactive?
+    //TODO connec to chat client ALEX 
 }
 
 fn show_all_rooms() {
     header("All Rooms");
     // TODO connect to db and print all rooms 
+    //TODO connec to chat client ALEX
 }
 
 fn show_active_rooms() {
     header("Active Rooms");
     // TODO connect to database and get list of each room. get number of each person in each room
+    //TODO connec to chat client ALEX
 }
 
 fn create_room(args: Vec<&str>) {
-    // TODO
+    // TODO connect to chat cliebnt ALEX
     if args.len() < 3 {
         warning("Usage: /create <room_id> <password>");
         return;
@@ -156,7 +158,7 @@ fn create_room(args: Vec<&str>) {
 }
 
 fn delete_room(args: Vec<&str>){
-    // TODO 
+     // TODO connect to chat cliebnt ALEX
     if args.len() < 2 {
         warning("Usage: /delete <room_id>");
         return;
@@ -170,7 +172,7 @@ fn delete_room(args: Vec<&str>){
 }
 
 fn join_room(args: Vec<&str>) {
-    // TODO ALEX
+     // TODO connect to chat cliebnt ALEX
     if args.len() < 3 {
         warning("Usage: /join <room_id> <password>");
         return;
@@ -188,7 +190,7 @@ fn join_room(args: Vec<&str>) {
 }
 
 fn kick_user(args: Vec<&str>) {
-    // TODO ALEX
+     // TODO connect to chat cliebnt ALEX
     if args.len() < 2 {
         warning("Usage: /kick <username>");
         return;
@@ -200,20 +202,22 @@ fn kick_user(args: Vec<&str>) {
 
 
 fn leave_room() {
-    // TODO Communicate with server? and mark as left in the database
-    warning(&format!("Leaving Room - ROOM NAME FROM STRUCT"));
+
+ // TODO connect to chat cliebnt ALEX
+     warning(&format!("Leaving Room - ROOM NAME FROM STRUCT"));
     success("Returned to Lobby");
 }
 
 fn show_active_users(room_id: &str) {
+     // TODO connect to chat cliebnt ALEX
     header(&format!("Active Users in {}", room_id));
     // TODO get list of active users from the database (ALEX)
 }
 
 fn in_chat_room(room_id: &str){
-    // TODO
-    // Connect to the server of the room to get and recieve messages
-    // TODO set up the async message printing
+     // TODO connect to chat cliebnt ALEX
+     // TODO get async messages and send async messages
+
     success(&format!("Connected to {}", room_id));
 
     loop {
@@ -238,14 +242,14 @@ fn in_chat_room(room_id: &str){
                 leave_room();
                 break;
             }
-            "/active_users" => show_active_users(room_id),
-            "/kick" => kick_user(args), 
+            "/active_users" => show_active_users(room_id),  // TODO connect to chat cliebnt ALEX
+            "/kick" => kick_user(args),   // TODO connect to chat cliebnt ALEX
             "/quit" => {
                 warning("Quitting Program");
                 std::process::exit(1);
             }
             _msg => {
-                // SEND messages TODO
+                 // How to send and recieve async messages ALEX
             }
         }
     }
@@ -268,7 +272,7 @@ fn alex_chat_room_loop(client: &mut ChatClient) {
 
         let user_input = input.trim();
         match user_input {
-            "/login" => logged_in = login(),
+            "/login" => logged_in = login(),  // TODO connect to chat cliebnt ALEX
             "/sign_up" => logged_in = sign_up(client),
             "/help" => print_help(),
             "/quit" => {
@@ -300,11 +304,11 @@ fn alex_chat_room_loop(client: &mut ChatClient) {
                 warning("Quitting Program");
                 std::process::exit(1);
             }
-            "/all_rooms" => show_all_rooms(),
-            "/active_rooms" => show_active_rooms(),
-            "/create" => create_room(args.clone()),
-            "/delete" => delete_room(args.clone()),
-            "/join" => join_room(args.clone()),
+            "/all_rooms" => show_all_rooms(),          // TODO connect to chat cliebnt ALEX
+            "/active_rooms" => show_active_rooms(),  // TODO connect to chat cliebnt ALEX
+            "/create" => create_room(args.clone()),  // TODO connect to chat cliebnt ALEX
+            "/delete" => delete_room(args.clone()),  // TODO connect to chat cliebnt ALEX
+            "/join" => join_room(args.clone()),  // TODO connect to chat cliebnt ALEX
             _ => error("Unknown Command - get /help"),
         }
     }

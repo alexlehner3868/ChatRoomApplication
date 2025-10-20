@@ -1,6 +1,8 @@
 use std::io::{self, Write};
 use std::net::TcpStream;
 
+// TODO ALEX : all these functions need to get a response from the server to validate that they worked and then return that or the return value to the user
+
 pub struct ChatClient {
     //pub stream: TcpStream, UNCOMMENT WHEN SERVER IS SET UP
     pub stream: Option<TcpStream>, // delete when server is set yp
@@ -30,6 +32,12 @@ impl ChatClient {
         // TODO need to add something in here for errors?? 
     }
 
+    fn read_from_server(&mut self) -> io::Result<String> { 
+        //TODO ALEX how to read responses from server (suc/fail) or get response values
+        // server returns /Success or /fail wiht reason or starts printing csv or data? ALEX
+        Ok(String::new())
+    }
+
     pub fn create_user(&mut self, username: &str, password: &str) -> bool {
         self.send_to_server(&format!("/create_user {} {}", username, password));
 
@@ -49,10 +57,13 @@ impl ChatClient {
 
     pub fn show_all_rooms(&mut self){
         self.send_to_server("/all_rooms");
+       // self.read_from_server() uncomment when set up TODO parse out input to return 
+       
     }
 
     pub fn show_active_rooms(&mut self){
         self.send_to_server("/active_rooms");
+        // self.read_from_server() uncomment when set up TODO parse out input to return 
     }
 
     pub fn create_room(&mut self, room_id: &str, password: &str){
@@ -73,9 +84,14 @@ impl ChatClient {
 
     pub fn get_room_owner(&mut self, room_id: &str){
         self.send_to_server(&format!("/room_owner {}", room_id));
+        // self.read_from_server() uncomment when set up and TODO parse out input to return 
     }
 
     pub fn get_active_users(&mut self, room_id: &str){
         self.send_to_server(&format!("/active_users {}", room_id));
+    }
+    
+    pub fn logout(&mut self) {
+        self.send_to_server(&format!("/logout"));
     }
 }
