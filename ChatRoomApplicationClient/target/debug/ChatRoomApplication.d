@@ -1,1 +1,0 @@
-/Users/alex/Documents/Programming/ChatRoomApplication/ChatRoomApplication/target/debug/ChatRoomApplication: /Users/alex/Documents/Programming/ChatRoomApplication/ChatRoomApplication/src/color_formatting.rs /Users/alex/Documents/Programming/ChatRoomApplication/ChatRoomApplication/src/main.rs

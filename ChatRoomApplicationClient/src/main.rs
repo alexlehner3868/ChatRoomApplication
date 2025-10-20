@@ -1,10 +1,15 @@
 
 use std::io::{self, Write};
-mod color_formatting;
-use color_formatting::*;
+use std::net::TcpStream;
 
-fn sign_up() -> bool { //TODO connect to database (and server?)
-    let mut signed_up = false;
+mod color_formatting;
+mod chat_client; 
+
+use color_formatting::*;
+use chat_client::ChatClient;
+
+
+fn sign_up(client: &mut ChatClient) -> bool { //TODO connect to database (and server?)
     header("Sign Up");
     info("Please enter a username (type /quit to cancel):");
 
@@ -29,13 +34,6 @@ fn sign_up() -> bool { //TODO connect to database (and server?)
             continue;
         } else if username.starts_with('/') {
             error("Invalid username — cannot start with /");
-            continue;
-        }
-
-        // TODO - Check to make sure that user doenst already exist
-        let username_exists = false;
-        if username_exists {
-            error("Username already exists");
             continue;
         }
 
@@ -77,17 +75,14 @@ fn sign_up() -> bool { //TODO connect to database (and server?)
         break password.to_string();
     };
 
-    // TODO - Create account. Hash and add the database
-    let account_created = true;
-
-    if account_created {
-        success(&format!("Account created successfully for '{}'", username));
-        signed_up = true;
-    } else {
-        error("Error creating account — please try again later");
+    if client.create_user(&username, &password){
+        client.username = Some(username.clone());
+        success(&format!("Account created succesfully for {}", username));
+        true
+    }else{
+        error("Error creating account - please try again");
+        false
     }
-    // TODO --> log the user in
-    signed_up
 }
 
 fn login() -> bool {
@@ -204,9 +199,9 @@ fn kick_user(args: Vec<&str>) {
 }
 
 
-fn leave_room(room_id: &str) {
+fn leave_room() {
     // TODO Communicate with server? and mark as left in the database
-    warning(&format!("Leaving Room - {}", room_id));
+    warning(&format!("Leaving Room - ROOM NAME FROM STRUCT"));
     success("Returned to Lobby");
 }
 
@@ -240,7 +235,7 @@ fn in_chat_room(room_id: &str){
         match args[0] {
             "/help" => print_help(),
             "/leave" => {
-                leave_room(room_id);
+                leave_room();
                 break;
             }
             "/active_users" => show_active_users(room_id),
@@ -257,7 +252,7 @@ fn in_chat_room(room_id: &str){
 }
 
 
-fn alex_chat_room_loop() {
+fn alex_chat_room_loop(client: &mut ChatClient) {
     success("Welcome to the Rust Chat Room Application!");
     let mut logged_in = false;
 
@@ -274,7 +269,7 @@ fn alex_chat_room_loop() {
         let user_input = input.trim();
         match user_input {
             "/login" => logged_in = login(),
-            "/sign_up" => logged_in = sign_up(),
+            "/sign_up" => logged_in = sign_up(client),
             "/help" => print_help(),
             "/quit" => {
                 warning("Quitting Program");
@@ -316,5 +311,11 @@ fn alex_chat_room_loop() {
 }
 
 fn main() {
-    alex_chat_room_loop();
+
+    let server_address = "127.0.0.1:12345"; // placehodler
+    let stream = TcpStream::connect(server_address);
+
+    //let mut client = ChatClient::init(stream); uncomment when server is set up 
+    let mut client = ChatClient::init(None);
+    alex_chat_room_loop(&mut client);
 }

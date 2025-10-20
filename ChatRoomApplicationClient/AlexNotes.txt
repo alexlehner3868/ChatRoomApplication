@@ -10,4 +10,7 @@ Todo
 10. I want help to take an input of which where the user is and then will turn avaialbe commands a different color so you can see that they are available to use. 
     - Maybe use an object that specifies colors of each line and then based on where it is, change the colors
 
+
+TODO 
+what happens on clinet side is a user is kicked by another user
         
