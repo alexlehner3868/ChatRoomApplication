@@ -2,6 +2,9 @@ use std::io::{self, Write};
 use std::net::TcpStream;
 use std::io::Read;
 
+use crate::color_formatting::*;
+
+
 // TODO ALEX : all these functions need to get a response from the server to validate that they worked and then return that or the return value to the user
 
 pub struct ChatClient {
@@ -88,10 +91,25 @@ impl ChatClient {
         self.current_room = None; 
     }
 
-    pub fn show_all_rooms(&mut self){
-        self.send_to_server("/all_rooms");
-       // self.read_from_server() uncomment when set up TODO parse out input to return 
-       
+   pub fn show_all_rooms(&mut self) {
+        match self.send_to_server("/all_rooms") {
+            Ok(response) => {
+                header("All Rooms");
+
+                if response.trim().is_empty() {
+                    info("No chat rooms available.");
+                } else {
+                    let rooms: Vec<&str> = response.trim().lines().collect();
+                    println!("Available Chat Rooms:");
+                    for room in rooms {
+                        println!("  - {}", room);
+                    }
+                }
+            }
+            Err(e) => {
+                error(&format!("Failed to get rooms: {}", e));
+            }
+        }
     }
 
     pub fn show_active_rooms(&mut self){

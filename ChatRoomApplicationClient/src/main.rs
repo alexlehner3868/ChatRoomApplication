@@ -182,17 +182,12 @@ fn logout(client: &mut ChatClient) {
     success("You have successfully logged out");
 }
 
-fn show_all_rooms() {
-    header("All Rooms");
+fn show_active_rooms() {
+    header("Active Rooms");
     // TODO connect to db and print all rooms 
     //TODO connec to chat client ALEX
 }
 
-fn show_active_rooms() {
-    header("Active Rooms");
-    // TODO connect to database and get list of each room. get number of each person in each room
-    //TODO connec to chat client ALEX
-}
 
 fn create_room(args: Vec<&str>) {
     // TODO connect to chat cliebnt ALEX
@@ -354,7 +349,7 @@ fn alex_chat_room_loop(client: &mut ChatClient) {
                     warning("Quitting Program");
                     std::process::exit(1);
                 }
-                "/all_rooms" => show_all_rooms(),          // TODO connect to chat cliebnt ALEX
+                "/all_rooms" => client.show_all_rooms(),    
                 "/active_rooms" => show_active_rooms(),  // TODO connect to chat cliebnt ALEX
                 "/create" => create_room(args.clone()),  // TODO connect to chat cliebnt ALEX
                 "/delete" => delete_room(args.clone()),  // TODO connect to chat cliebnt ALEX
