@@ -177,9 +177,9 @@ fn print_help() {
     println!("==============================");
 }
 
-fn logout() {
-    // TODO: mark user as inactive?
-    //TODO connec to chat client ALEX 
+fn logout(client: &mut ChatClient) {
+    client.logout();
+    success("You have successfully logged out");
 }
 
 fn show_all_rooms() {
@@ -309,56 +309,62 @@ fn alex_chat_room_loop(client: &mut ChatClient) {
     success("Welcome to the Rust Chat Room Application!");
     let mut logged_in = false;
 
-    while !logged_in {
-        info("[Please /login or /sign_up or get /help]");
-        system_prompt(">");
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new(); 
-        if io::stdin().read_line(&mut input).is_err() {
-            continue;
-        }
-
-        let user_input = input.trim();
-        match user_input {
-            "/login" => logged_in = login(client),  // TODO connect to chat cliebnt ALEX
-            "/sign_up" => logged_in = sign_up(client),
-            "/help" => print_help(),
-            "/quit" => {
-                warning("Quitting Program");
-                std::process::exit(1);
-            }
-            _ => error("Unknown Command - get /help"),
-        }
-    }
-
-    success("Connected to Chat Room Lobby");
-
     loop {
-        system_prompt("[Lobby] > ");
-        io::stdout().flush().unwrap();
+        while !logged_in {
+            info("[Please /login or /sign_up or get /help]");
+            system_prompt(">");
+            io::stdout().flush().unwrap();
 
-        let mut user_input = String::new();
-        if io::stdin().read_line(&mut user_input).is_err() {
-            continue;
+            let mut input = String::new(); 
+            if io::stdin().read_line(&mut input).is_err() {
+                continue;
+            }
+
+            let user_input = input.trim();
+            match user_input {
+                "/login" => logged_in = login(client),  
+                "/sign_up" => logged_in = sign_up(client),
+                "/help" => print_help(),
+                "/quit" => {
+                    warning("Quitting Program");
+                    std::process::exit(1);
+                }
+                _ => error("Unknown Command - get /help"),
+            }
         }
 
-        let input = user_input.trim();
-        let args: Vec<&str> = input.split_whitespace().collect();
-        if args.is_empty() { continue; }
+        success("Connected to Chat Room Lobby");
 
-        match args[0] {
-            "/help" => print_help(),
-            "/quit" => {
-                warning("Quitting Program");
-                std::process::exit(1);
+        while logged_in {
+            system_prompt("[Lobby] > ");
+            io::stdout().flush().unwrap();
+
+            let mut user_input = String::new();
+            if io::stdin().read_line(&mut user_input).is_err() {
+                continue;
             }
-            "/all_rooms" => show_all_rooms(),          // TODO connect to chat cliebnt ALEX
-            "/active_rooms" => show_active_rooms(),  // TODO connect to chat cliebnt ALEX
-            "/create" => create_room(args.clone()),  // TODO connect to chat cliebnt ALEX
-            "/delete" => delete_room(args.clone()),  // TODO connect to chat cliebnt ALEX
-            "/join" => join_room(args.clone()),  // TODO connect to chat cliebnt ALEX
-            _ => error("Unknown Command - get /help"),
+
+            let input = user_input.trim();
+            let args: Vec<&str> = input.split_whitespace().collect();
+            if args.is_empty() { continue; }
+
+            match args[0] {
+                "/help" => print_help(),
+                "/quit" => {
+                    warning("Quitting Program");
+                    std::process::exit(1);
+                }
+                "/all_rooms" => show_all_rooms(),          // TODO connect to chat cliebnt ALEX
+                "/active_rooms" => show_active_rooms(),  // TODO connect to chat cliebnt ALEX
+                "/create" => create_room(args.clone()),  // TODO connect to chat cliebnt ALEX
+                "/delete" => delete_room(args.clone()),  // TODO connect to chat cliebnt ALEX
+                "/join" => join_room(args.clone()),  // TODO connect to chat cliebnt ALEX
+                "/logout" => {
+                    logout(client);
+                    logged_in = false;
+                }
+                _ => error("Unknown Command - get /help"),
+            }
         }
     }
 }

@@ -124,7 +124,14 @@ impl ChatClient {
         self.send_to_server(&format!("/active_users {}", room_id));
     }
     
-    pub fn logout(&mut self) {
-        self.send_to_server(&format!("/logout"));
+    pub fn logout(&mut self) -> io::Result<()> {
+        if let Some(username) = &self.username {
+            self.send_to_server(&format!("/logout {}", username))?;
+        }
+
+        self.username = None;
+        self.current_room = None;
+
+        Ok(())
     }
 }
