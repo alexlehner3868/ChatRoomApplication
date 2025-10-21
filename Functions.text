@@ -1,0 +1,30 @@
+/create_user username password
+        - Client Side
+            - Check that password meets the criteria 
+            - Pass above command to server
+        - Server Side   
+            - Check that no user exists with that user name
+            - Add username and password hash to the database
+            - Return:
+                - /Success 
+                - /Error {reason}
+
+
+/login username password 
+    - Client side:
+        - pass username and password to server
+    - Server side:
+        - Check that user exists
+        - Check that password matches hash
+        - Connect the user to the server
+        - Return 
+            - /Success
+            -/Error Incorrect username or password
+
+/logout username 
+    - Client side:
+        - pass the username who will no longer be active to the server
+    - Servier side:
+        - Keep the client open 
+        - Mark the user as inactive 
+        - Return {doesnt matter}
