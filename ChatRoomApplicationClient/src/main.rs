@@ -75,14 +75,18 @@ fn sign_up(client: &mut ChatClient) -> bool {
         break password.to_string();
     };
 
-    if client.create_user(&username, &password){
-        client.username = Some(username.clone());
-        success(&format!("Account created succesfully for {}", username));
-        true
-    }else{
-        error("Error creating account - please try again");
-        false
+    let mut user_created = false;
+    match client.create_user(&username, &password) {
+        Ok(_) => {
+            success(&format!("Account created succesfully for {}", username));
+            user_created = true;
+        },
+        Err(reason) => {
+            error(&format!("Failed to create account: {}", reason));
+        }
     }
+ 
+    user_created
 }
 
 fn login() -> bool {

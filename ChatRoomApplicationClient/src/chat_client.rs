@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 use std::net::TcpStream;
+use std::io::Read;
 
 // TODO ALEX : all these functions need to get a response from the server to validate that they worked and then return that or the return value to the user
 
@@ -20,29 +21,47 @@ impl ChatClient {
         }
     }
 
-    fn send_to_server(&mut self, message: &str) -> std::io::Result<()> {
+    fn send_to_server(&mut self, message: &str) -> io::Result<String> {
         if let Some(stream) = &mut self.stream {
             stream.write_all(message.as_bytes())?;
             stream.flush()?;
-        }else{
-            println!("(Testing) would have sent {}", message);
-        }
-        Ok(())
 
-        // TODO need to add something in here for errors?? 
+
+            self.read_from_server()
+        }else{
+           // println!("(Testing) would have sent {}", message);
+            Ok(String::from("/Success (Testing mode)"))
+        }
+   
     }
 
     fn read_from_server(&mut self) -> io::Result<String> { 
-        //TODO ALEX how to read responses from server (suc/fail) or get response values
-        // server returns /Success or /fail wiht reason or starts printing csv or data? ALEX
-        Ok(String::new())
+        if let Some(stream) = &mut self.stream {
+            let mut buffer = [0; 512];
+            let bytes_read = stream.read(&mut buffer)?;
+            let response = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+            Ok(response)
+        } else {
+            Ok(String::from("/Success (Testing mode — no server)"))
+        }
     }
 
-    pub fn create_user(&mut self, username: &str, password: &str) -> bool {
+    pub fn create_user(&mut self, username: &str, password: &str) -> Result<(), String> {
         self.send_to_server(&format!("/create_user {} {}", username, password));
 
-        // TODO get server response and check if error or not ???
-        true
+        match self.send_to_server(&format!("/create_user {} {}", username, password)) {
+            Ok(response) => {
+                if response.starts_with("/Success") {
+                    Ok(())
+                } else if response.starts_with("/Error") {
+                    let reason = response.trim_start_matches("/Error").trim().to_string();
+                    Err(reason)
+                } else {
+                    Err("Unexpected server response".to_string())
+                }
+            }
+            Err(e) => Err(format!("Connection error: {}", e)),
+        }
     }
 
     pub fn join_room(&mut self, room_id: &str, password: &str){
