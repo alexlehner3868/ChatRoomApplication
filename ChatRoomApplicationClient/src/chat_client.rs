@@ -29,7 +29,6 @@ impl ChatClient {
 
             self.read_from_server()
         }else{
-           // println!("(Testing) would have sent {}", message);
             Ok(String::from("/Success (Testing mode)"))
         }
    
@@ -47,9 +46,24 @@ impl ChatClient {
     }
 
     pub fn create_user(&mut self, username: &str, password: &str) -> Result<(), String> {
-        self.send_to_server(&format!("/create_user {} {}", username, password));
-
         match self.send_to_server(&format!("/create_user {} {}", username, password)) {
+            Ok(response) => {
+                if response.starts_with("/Success") {
+                    Ok(())
+                } else if response.starts_with("/Error") {
+                    // TODO: Server needs to check that no other account has the same username
+                    let reason = response.trim_start_matches("/Error").trim().to_string();
+                    Err(reason)
+                } else {
+                    Err("Unexpected server response".to_string())
+                }
+            }
+            Err(e) => Err(format!("Connection error: {}", e)),
+        }
+    }
+
+    pub fn login(&mut self, username: &str, password: &str) -> Result<(), String> {
+        match self.send_to_server(&format!("/login {} {}", username, password)) {
             Ok(response) => {
                 if response.starts_with("/Success") {
                     Ok(())

@@ -1,6 +1,7 @@
 
 use std::io::{self, Write};
 use std::net::TcpStream;
+use rpassword::read_password;
 
 mod color_formatting;
 mod chat_client; 
@@ -47,7 +48,7 @@ fn sign_up(client: &mut ChatClient) -> bool {
     info("- At least one special character");
     info("(Type /quit to cancel)");
 
-    let password = loop {
+    let password = loop { // Change to use read_password for security (ALEX todo)
         print!("Password: ");
         io::stdout().flush().unwrap();
 
@@ -89,12 +90,53 @@ fn sign_up(client: &mut ChatClient) -> bool {
     user_created
 }
 
-fn login() -> bool {
-    let mut login = false;
-    login = true;
-    //TODO connec to chat client ALEX
-    success("Login Successful");
-    login
+fn login(client: &mut ChatClient) -> bool {
+    header("Login");
+    info("Please enter your username and password to log in.");
+    info("(Type /quit at any time to cancel)");
+
+    print!("Username: ");
+    io::stdout().flush().unwrap();
+
+    let mut username = String::new();
+    if io::stdin().read_line(&mut username).is_err() {
+        error("Error reading username");
+        return false;
+    }
+    let username = username.trim();
+
+    if username == "/quit" {
+        warning("Login cancelled");
+        return false;
+    }
+
+    print!("Password: ");
+    io::stdout().flush().unwrap();
+    let password = match read_password() {
+        Ok(pw) => pw.trim().to_string(),
+        Err(_) => {
+            error("Error reading password");
+            return false;
+        }
+    };
+
+    if password == "/quit" {
+        warning("Login cancelled");
+        return false;
+    }
+
+    match client.login(username, &password) {
+        Ok(_) => {
+            client.username = Some(username.to_string());
+            success(&format!("Login successful — welcome, {}!", username));
+            return true
+        },
+        Err(reason) => {
+            error(&format!("Login failed: {}", reason));
+            return false
+        }
+    }
+
 }
 
 
@@ -276,7 +318,7 @@ fn alex_chat_room_loop(client: &mut ChatClient) {
 
         let user_input = input.trim();
         match user_input {
-            "/login" => logged_in = login(),  // TODO connect to chat cliebnt ALEX
+            "/login" => logged_in = login(client),  // TODO connect to chat cliebnt ALEX
             "/sign_up" => logged_in = sign_up(client),
             "/help" => print_help(),
             "/quit" => {
