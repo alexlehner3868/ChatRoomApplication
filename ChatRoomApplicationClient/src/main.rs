@@ -52,10 +52,13 @@ fn sign_up(client: &mut ChatClient) -> bool {
         print!("Password: ");
         io::stdout().flush().unwrap();
 
-        let mut input = String::new();
-        if io::stdin().read_line(&mut input).is_err() {
-            continue;
-        }
+        let input = match read_password() {
+            Ok(p) => p,
+            Err(_) => {
+                error("Failed to read password");
+                continue;
+            }
+        };
 
         let password = input.trim();
 
