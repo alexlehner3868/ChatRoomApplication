@@ -87,7 +87,7 @@ Is it helpful for the server team to always be provided with the username (and r
         - Verify that the password is correct
         - Mark the user into this room in the db 
         - Return    
-            - /Success
+            - /Success {previous X messages? } // we need to align on formatting
             - /Error {reason}
                 - Room name or password Incorrect
 
