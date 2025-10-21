@@ -256,6 +256,7 @@ fn show_active_users(room_id: &str) {
      // TODO connect to chat cliebnt ALEX
     header(&format!("Active Users in {}", room_id));
     // TODO get list of active users from the database (ALEX)
+    // replace this user's name with "You"
 }
 
 fn in_chat_room(room_id: &str){

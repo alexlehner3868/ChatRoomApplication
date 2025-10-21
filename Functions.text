@@ -1,3 +1,6 @@
+Question:
+Is it helpful for the server team to always be provided with the username (and room when applicable) or do you want to maintain a table that links connection to username
+
 /create_user username password
         - Client Side
             - Check that password meets the criteria 
@@ -17,6 +20,7 @@
         - Check that user exists
         - Check that password matches hash
         - Connect the user to the server
+        - Record in the database that this user is associated with this connection 
         - Return 
             - /Success
             -/Error Incorrect username or password
@@ -27,4 +31,93 @@
     - Servier side:
         - Keep the client open 
         - Mark the user as inactive 
+        - Record in the database that this user is no longer associated with this connection 
         - Return {doesnt matter}
+
+/show_all_rooms
+    - Client side:
+        - Pass the command to the server
+    - Server side:
+        - query the db for a list of all rooms 
+        - return the list of all rooms to the client
+
+
+/show_active_rooms
+    - Client side:
+        - pass command to the server
+    - Server side:
+        - Query the db for the list of rooms 
+        - Query the db for user in each room 
+        - Return a list of all rooms who have >= 1 user in them 
+
+
+/create_room room_id password
+    - Client side:
+        - Collect name of room
+        - Pass to server
+    - Server side:
+        - Verify that a room doesnt alrady exist with that name
+        - Add room and password to database 
+        - create room? 
+        - Return 
+            - /Success if room was created 
+            - /Error {reaason}
+                - Room name already exists 
+
+/delete_room room_id username
+    - Client side:
+        - Send info to the server
+    - Server side:
+        - Verify a room exists with that name 
+        - Verify that the username is the owner of the room 
+        - Remove all users from the room in database (TODO --> we'll need to communicate this back to the other client servers some how)
+        - Remove the room from the database 
+        - Return 
+            -/Success 
+            - /Error {reason}
+                - Room does not exist
+                - You do not have permission to delete the room
+                etc
+
+/join_room room_id password
+    - Client side:
+        - Pass in the info
+    - Server side:
+        - Verify that this room exists
+        - Verify that the password is correct
+        - Mark the user into this room in the db 
+        - Return    
+            - /Success
+            - /Error {reason}
+                - Room name or password Incorrect
+
+/kick_user username_to_kick
+    - Client side:
+        - pass info 
+        - Work out how to check if current user was kicked
+    - Server side:
+        - Check that the user is the owner of the room 
+        - Check that the username_to_kick is curerntly in the room 
+        - Send message to the connection of the username_to_kick that they were kicked (need to work this out)
+        - Remove the user as active in room in database 
+        - Return 
+            - /Success
+            - /Error {reason}
+                - You dont have permission to kick 
+                - {user} is not currently active in the room 
+
+/leave_room room_id
+    - Client Side:
+        - Tell that the current user is leaving their room
+    - Server:
+        - Remove the user as active in that room in the db 
+
+
+/active_users room_id
+    -Cleint side:
+        - provide command
+    - Server side   
+        - Return a list of all active users in the room
+
+// somethign with messages too
+
