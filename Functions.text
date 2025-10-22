@@ -12,7 +12,6 @@ Is it helpful for the server team to always be provided with the username (and r
                 - /Success 
                 - /Error {reason}
 
-
 /login username password 
     - Client side:
         - pass username and password to server
@@ -41,7 +40,6 @@ Is it helpful for the server team to always be provided with the username (and r
         - query the db for a list of all rooms 
         - return the list of all rooms to the client
 
-
 /show_active_rooms
     - Client side:
         - pass command to the server
@@ -49,7 +47,6 @@ Is it helpful for the server team to always be provided with the username (and r
         - Query the db for the list of rooms 
         - Query the db for user in each room 
         - Return a list of all rooms who have >= 1 user in them 
-
 
 /create_room room_id password
     - Client side:
@@ -118,6 +115,12 @@ Is it helpful for the server team to always be provided with the username (and r
         - provide command
     - Server side   
         - Return a list of all active users in the room
+
+/history
+    - Client side:
+        - Send history request
+    - Server side:
+        - provide 5 more historical messages or End of chat
 
 // somethign with messages too
 
