@@ -128,7 +128,18 @@ impl ChatClient {
                 if let Ok(resp) = serde_json::from_str::<JoinRoomResponse>(&resp_str) {
                     success(&format!("[Connected to '{}']", resp.room_id));
                     self.current_room = Some(resp.room_id.clone());
-                    // TODO: print the chat history
+                
+                    if !resp.chat_history.is_empty() {
+                        header("Chat History");
+                        for msg in resp.chat_history {
+                            if msg.user_id == self.username.clone().unwrap_or_default() {
+                                my_message(&msg.timestamp, &msg.content);
+                            }else{
+                                user_message(&msg.timestamp, &msg.user_id, &msg.content);
+                            }
+                        }
+                    }
+
                     true
                 } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
                     match err {

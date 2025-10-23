@@ -25,12 +25,12 @@ pub fn info(text: &str) {
     println!("{}", text);
 }
 
-pub fn user_message(username: &str, message: &str) {
-    println!("{}", format!("{}: {}", username, message).blue());
+pub fn user_message(timestamp: &str, username: &str, message: &str) {
+    println!("{}", format!("[{}] {}: {}", timestamp, username, message).blue());
 }
 
-pub fn my_message(message: &str) {
-    println!("{}", format!("You: {}", message));
+pub fn my_message(timestamp: &str, message: &str) {
+    println!("{}", format!("[{}] You: {}", timestamp, message));
 }
 
 pub fn system_prompt(text: &str) {
