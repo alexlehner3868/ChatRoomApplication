@@ -1,7 +1,7 @@
 TODO 
+- Get old messages to load up when joining a room 
 - Finish connecting all functions to chat client 
     - Add get more history (can I clear the chat to reprint all of them with it?)
-- Get old messages to load up when joining a room 
 - Send messages in a chat room 
 - Async Display messages
 - what happens on clinet side is a user is kicked by another user
