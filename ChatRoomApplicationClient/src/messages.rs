@@ -91,7 +91,6 @@ pub struct CreateRoomResponse{
 pub struct JoinRoomResponse{
     pub room_id: String,
     pub chat_history: Vec<ChatMessage>,
-    pub active_users: Vec<String>,
 }
 
 #[derive(Serialize,Deserialize,Debug,Clone)]
@@ -176,4 +175,5 @@ pub enum ErrorResponse{
     RoomAlreadyExists{room_id: String},
     NotInRoom{room_id: String},
     ServerError{message: String},
+    InvalidPermissions{message: String},
 }

@@ -1,155 +1,413 @@
-use std::io::{self, Write};
-use std::net::TcpStream;
-use std::io::Read;
+use reqwest::Client;
+use serde::{Serialize, Deserialize};
 
 use crate::color_formatting::*;
-
-
-// TODO ALEX : all these functions need to get a response from the server to validate that they worked and then return that or the return value to the user
+use crate::messages::*;
 
 pub struct ChatClient {
-    //pub stream: TcpStream, UNCOMMENT WHEN SERVER IS SET UP
-    pub stream: Option<TcpStream>, // delete when server is set yp
+    pub server_url: String,
+    pub http: Client,
+    pub auth_token: Option<String>,
     pub username: Option<String>,
-    pub current_room: Option<String>
+    pub current_room: Option<String>,
 }
 
 impl ChatClient {
-    //pub fn init(stream: TcpStream) -> Self { USE THIS WHEN SERVER IS SET UP
-    pub fn init(stream: Option<TcpStream>) -> Self {
+
+    pub fn init(server_url: &str) -> Self {
         ChatClient {
-            stream,
+            server_url: server_url.to_string(),
+            http: Client::new(),
+            auth_token: None,
             username: None,
             current_room: None,
         }
     }
 
-    fn send_to_server(&mut self, message: &str) -> io::Result<String> {
-        if let Some(stream) = &mut self.stream {
-            stream.write_all(message.as_bytes())?;
-            stream.flush()?;
+    pub async fn send_json_to_server<T: Serialize>( &self, endpoint: &str, msg: &T,) -> Result<String, reqwest::Error> {
+        let mut request = self.http.post(format!("{}/{}", self.server_url, endpoint)).json(msg);
 
-
-            self.read_from_server()
-        }else{
-            Ok(String::from("/Success (Testing mode)"))
+        if let Some(token) = &self.auth_token {
+            request = request.bearer_auth(token);
         }
-   
+
+        let response = request.send().await?.text().await?;
+        Ok(response)
     }
 
-    fn read_from_server(&mut self) -> io::Result<String> { 
-        if let Some(stream) = &mut self.stream {
-            let mut buffer = [0; 512];
-            let bytes_read = stream.read(&mut buffer)?;
-            let response = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
-            Ok(response)
-        } else {
-            Ok(String::from("/Success (Testing mode — no server)"))
-        }
-    }
+    pub async fn create_user(&mut self, username: &str, password: &str) -> bool {
+        let req = RegisterRequest {
+            user_id: username.to_string(),
+            password: password.to_string(),
+        };
 
-    pub fn create_user(&mut self, username: &str, password: &str) -> Result<(), String> {
-        match self.send_to_server(&format!("/create_user {} {}", username, password)) {
-            Ok(response) => {
-                if response.starts_with("/Success") {
-                    Ok(())
-                } else if response.starts_with("/Error") {
-                    // TODO: Server needs to check that no other account has the same username
-                    let reason = response.trim_start_matches("/Error").trim().to_string();
-                    Err(reason)
-                } else {
-                    Err("Unexpected server response".to_string())
-                }
-            }
-            Err(e) => Err(format!("Connection error: {}", e)),
-        }
-    }
-
-    pub fn login(&mut self, username: &str, password: &str) -> Result<(), String> {
-        match self.send_to_server(&format!("/login {} {}", username, password)) {
-            Ok(response) => {
-                if response.starts_with("/Success") {
-                    Ok(())
-                } else if response.starts_with("/Error") {
-                    let reason = response.trim_start_matches("/Error").trim().to_string();
-                    Err(reason)
-                } else {
-                    Err("Unexpected server response".to_string())
-                }
-            }
-            Err(e) => Err(format!("Connection error: {}", e)),
-        }
-    }
-
-    pub fn join_room(&mut self, room_id: &str, password: &str){
-        self.send_to_server(&format!("/join {} {}", room_id, password));
-        self.current_room = Some(room_id.to_string());
-    }
-
-    pub fn leave_room(&mut self, room_id: &str){
-        self.send_to_server("/leave");    
-        self.current_room = None; 
-    }
-
-   pub fn show_all_rooms(&mut self) {
-        match self.send_to_server("/all_rooms") {
-            Ok(response) => {
-                header("All Rooms");
-
-                if response.trim().is_empty() {
-                    info("No chat rooms available.");
-                } else {
-                    let rooms: Vec<&str> = response.trim().lines().collect();
-                    println!("Available Chat Rooms:");
-                    for room in rooms {
-                        println!("  - {}", room);
+        match self.send_json_to_server("create_user", &req).await {
+            Ok(resp_str) => {
+                if let Ok(resp) = serde_json::from_str::<AuthSuccessResponse>(&resp_str) {
+                    success(&format!("User '{}' created successfully!", resp.user_id));
+                    self.auth_token = Some(resp.token);
+                    return true;
+                } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                    match err {
+                        ErrorResponse::AuthenticationFailed { message } => {
+                            error(&format!("Error: Authentication failed: {}", message));
+                        }
+                        ErrorResponse::ServerError { message } => {
+                            error(&format!("Server error: {}", message));
+                        }
+                        ErrorResponse::UserAlreadyExists { user_id } => {
+                            error(&format!("Error: User {} already exists", user_id));
+                        }
+                        _ => {
+                            error(&format!("Error: {:?}", err));
+                        }
                     }
+                } else {
+                    error("Unexpected server response");
                 }
             }
             Err(e) => {
-                error(&format!("Failed to get rooms: {}", e));
+                error(&format!("Connection error: {}", e));
+            }
+        }
+
+        false
+    }
+
+
+    pub async fn login(&mut self, username: &str, password: &str) -> bool {
+        let req = LoginRequest {
+            user_id: username.to_string(),
+            password: password.to_string()
+        };
+
+        match self.send_json_to_server("login", &req).await {
+            Ok(resp_str) => {
+                if let Ok(resp) = serde_json::from_str::<AuthSuccessResponse>(&resp_str) {
+                    success(&format!("Welcome {}!", resp.user_id));
+                    self.auth_token = Some(resp.token);
+                    self.username = Some(resp.user_id);
+                    true
+                } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                    match err {
+                        ErrorResponse::AuthenticationFailed { message } => {
+                            error(&format!("Error: Authentication failed: {}", message));
+                        }
+                        ErrorResponse::InvalidPassword {..} | ErrorResponse::UserNotFound {..} => {
+                            error("Error: Invalid username or password");
+                        }
+                        ErrorResponse::ServerError { message } => {
+                            error(&format!("Server error: {}", message));
+                        }
+                        _ => {
+                            error(&format!("Error: {:?}", err));
+                        }
+                    }
+                    false
+                } else {
+                    error("Unexpected server response");
+                    false
+                }
+            }
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                false
             }
         }
     }
 
-    pub fn show_active_rooms(&mut self){
-        self.send_to_server("/active_rooms");
-        // self.read_from_server() uncomment when set up TODO parse out input to return 
+
+    pub async fn join_room(&mut self, room_id: &str, password: &str) -> bool {
+        let req = JoinRoomRequest {
+            room_id: room_id.to_string(),
+            room_password: password.to_string(),
+        };
+
+        match self.send_json_to_server("join_room", &req).await {
+            Ok(resp_str) => {
+                if let Ok(resp) = serde_json::from_str::<JoinRoomResponse>(&resp_str) {
+                    success(&format!("[Connected to '{}']", resp.room_id));
+                    self.current_room = Some(resp.room_id.clone());
+                    // TODO: print the chat history
+                    true
+                } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                    match err {
+                        ErrorResponse::AuthenticationFailed { message } => {
+                            error(&format!("Error: Authentication failed: {}", message));
+                        }
+                        ErrorResponse::InvalidPassword { .. } => {
+                            error("Error: Invalid password");
+                        }
+                        ErrorResponse::RoomNotFound { room_id } => {
+                            error(&format!("Error: Room {} not found", room_id));
+                        }
+                        _ => {
+                            error(&format!("Error: {:?}", err));
+                        }
+                    }
+                    false
+                } else {
+                    error("Unexpected server response");
+                    false
+                }
+            }
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                false
+            }
+        }
     }
 
-    pub fn create_room(&mut self, room_id: &str, password: &str){
-        self.send_to_server(&format!("/create {} {}", room_id, password));
-    }
 
-    pub fn delete_room(&mut self, room_id: &str){
-        self.send_to_server(&format!("/delete {}", room_id));
-    }
+    pub async fn leave_room(&mut self, room_id: &str) {
+        let msg = ClientWsMessage::LeaveRoom {
+            room_id: room_id.to_string(),
+        };
 
-    pub fn kick_user(&mut self, username: &str){
-        self.send_to_server(&format!("/kick {}", username));
-    }
+        let response = match self.send_json_to_server("leave_room", &msg).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                return; // exit the function on error
+            }
+        };
 
-    pub fn send_message(&mut self, message: &str){
-        self.send_to_server(message);
-    }
+        if let Ok(err_resp) = serde_json::from_str::<ErrorResponse>(&response) {
+            match err_resp {
+                ErrorResponse::AuthenticationFailed { message } => {
+                    error(&format!("Authentication failed: {}", message));
+                    return;
+                }
 
-    pub fn get_room_owner(&mut self, room_id: &str){
-        self.send_to_server(&format!("/room_owner {}", room_id));
-        // self.read_from_server() uncomment when set up and TODO parse out input to return 
-    }
-
-    pub fn get_active_users(&mut self, room_id: &str){
-        self.send_to_server(&format!("/active_users {}", room_id));
-    }
-    
-    pub fn logout(&mut self) -> io::Result<()> {
-        if let Some(username) = &self.username {
-            self.send_to_server(&format!("/logout {}", username))?;
+                ErrorResponse::ServerError { message } => {
+                    error(&format!("Server error: {}", message));
+                    return;
+                }
+                _ => {}
+            };
         }
 
-        self.username = None;
         self.current_room = None;
-
-        Ok(())
+        success(&format!("Successfully left {}", room_id));
     }
+
+
+    pub async fn show_all_rooms(&mut self, active_room_only: bool) {
+
+        let req = ListRoomsRequest {
+            only_active: active_room_only,
+        };
+
+        let response = match self.send_json_to_server("all_rooms", &req).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                return;
+            }
+        };
+
+        header("[All Rooms]");
+        if response.trim().is_empty() {
+            info(" - No chat rooms exist");
+        } else {
+            // Deserialize JSON data return by server
+            match serde_json::from_str::<Vec<String>>(&response) {
+                Ok(rooms) if rooms.is_empty() => info(" - No chat rooms exist"),
+                Ok(rooms) => {
+                    for room in rooms {
+                        info(&format!("  - {}", room));
+                    }
+                }
+                Err(_) => {}
+            }
+        }
+    }
+    
+    pub async fn create_room(&mut self, room_id: &str, password: &str){
+
+      let req = CreateRoomRequest {
+        room_id: room_id.to_string(),
+        room_password: password.to_string(),
+        };
+
+        let response = match self.send_json_to_server("create_room", &req).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                return;
+            }
+        };
+
+        if let Ok(resp) = serde_json::from_str::<CreateRoomResponse>(&response) {
+            success(&format!("Room Created - {}", resp.room_id));
+        }else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
+            match err {
+                ErrorResponse::RoomAlreadyExists { room_id } => {
+                    error(&format!("Error: Room '{}' already exists", room_id));
+                }
+                ErrorResponse::AuthenticationFailed { message } => {
+                    error(&format!("Error: Authentication failed: {}", message));
+                }
+                ErrorResponse::ServerError { message } => {
+                    error(&format!("Server error: {}", message));
+                }
+                _ => {
+                    error(&format!("Error: {:?}", err));
+                }
+            }
+        }else {
+            error(&format!("Unexpected server response: {}", response));
+        }
+    }
+
+    pub async fn delete_room(&mut self, room_id: &str){
+        let req = DeleteRoomRequest {
+            room_id: room_id.to_string(),
+        };
+
+        let response = match self.send_json_to_server("delete_room", &req).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                return;
+            }
+        };
+
+        if let Ok(resp) = serde_json::from_str::<SuccessResponse>(&response) {
+                success(&format!("{}", resp.message));
+
+        } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
+            match err {
+                ErrorResponse::RoomNotFound { room_id } => {
+                    error(&format!("Error: Room '{}' does not exist", room_id));
+                }
+                ErrorResponse::InvalidPermissions { .. } => {
+                    error(&format!("Error:  You are not the owner of '{}'", room_id));
+                }
+                ErrorResponse::ServerError { message } => {
+                    error(&format!("Server error: {}", message));
+                }
+                _ => {
+                    error(&format!("Error: {:?}", err));
+                }
+            }
+        } else {
+            error(&format!("Unexpected server response: {}", response));
+        }
+
+    }
+
+    pub async fn kick_user(&mut self, username: &str){
+        let current_room = self.current_room.clone().unwrap_or_else(|| "unknown_room".to_string());
+        let req = ClientWsMessage::KickUser {
+            room_id: current_room.clone(),
+            user_id: username.to_string()
+        };
+
+        let response = match self.send_json_to_server("kick_user", &req).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                return;
+            }
+        };
+
+        if let Ok(resp) = serde_json::from_str::<SuccessResponse>(&response) {
+            success(&format!("User '{}' has been kicked from room", username));
+
+        } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
+            match err {
+                ErrorResponse::AuthenticationFailed { message } => {
+                    error(&format!("Error: Authentication failed: {}", message));
+                }
+                ErrorResponse::NotInRoom {room_id } => {
+                    error(&format!("Error: User '{}' not in room {}", username, room_id));
+                }
+                ErrorResponse::ServerError { message } => {
+                    error(&format!("Error: Server error: {}", message));
+                }
+                ErrorResponse::InvalidPermissions { ..} => {
+                    error(&format!("Error: You dont own room {}; cannot kick {}", current_room, username));
+                } 
+                _ => {
+                    error(&format!("Error: {:?}", err));
+                }
+            }
+
+        }else {
+            error(&format!("Unexpected server response: {}", response));
+        }
+    }
+
+  
+    pub async fn get_active_users(&mut self) {
+        let room = match &self.current_room {
+            Some(current_room) => current_room,
+            None => return, // exit if not in a room
+        };
+
+        let req = ListRoomUsersRequest {
+            room_id: room.to_string(),
+        };
+
+        // handle connection errors immediately
+        let response = match self.send_json_to_server("list_room_users", &req).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                error(&format!("Connection error: {}", e));
+                return;
+            }
+        };
+
+        if let Ok(users_resp) = serde_json::from_str::<ListRoomUsersResponse>(&response) {
+            header(&format!("Active Users in '{}'", room));
+            if users_resp.active_users.is_empty() {
+                info(" - No active users");
+            } else {
+                for user in users_resp.active_users {
+                    println!(" - {}", user);
+                }
+            }
+        } else if let Ok(err_resp) = serde_json::from_str::<ErrorResponse>(&response) {
+            match err_resp {
+                ErrorResponse::ServerError { message } => {
+                    error(&format!("Server error: {}", message));
+                }
+                _ => error(&format!("Unexpected error: {:?}", err_resp)),
+            }
+        } else {
+            error(&format!("Unexpected server response: {}", response));
+        }
+    }
+
+    pub async fn logout(&mut self){
+
+        if let Some(username) = &self.username {
+            let req = LogoutRequest {}; 
+
+            match self.send_json_to_server("logout", &req).await {
+
+                Ok(resp_str) => {
+                    if let Ok(_resp) = serde_json::from_str::<SuccessResponse>(&resp_str) {
+                        success(&format!("User '{}' logged out successfully", username));
+                        self.username = None;
+                        self.current_room = None;
+                    } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                        match err {
+                            ErrorResponse::AuthenticationFailed { message } => {
+                                error(&format!("Logout failed: {}", message));
+                            }
+                            _ => {
+                                error(&format!("Logout failed: {:?}", err));
+                            }
+                        }
+                    } else {
+                        error(&format!("Unexpected server response: {}", resp_str));
+                    }
+                }
+                Err(e) => error(&format!("Connection error during logout: {}", e)),
+            }
+        }
+    }
+
 }
