@@ -207,19 +207,23 @@ impl ChatClient {
         };
 
         header("[All Rooms]");
-        if response.trim().is_empty() {
-            info(" - No chat rooms exist");
-        } else {
-            // Deserialize JSON data return by server
-            match serde_json::from_str::<Vec<String>>(&response) {
-                Ok(rooms) if rooms.is_empty() => info(" - No chat rooms exist"),
-                Ok(rooms) => {
-                    for room in rooms {
-                        info(&format!("  - {}", room));
+        let parsed: Result<ListRoomsResponse, _> = serde_json::from_str(&response);
+
+        match parsed {
+            Ok(list_resp) => {
+                if list_resp.rooms.is_empty() {
+                    info(" - No chat rooms exist");
+                } else {
+                    for room in list_resp.rooms {
+                        if active_room_only {
+                            info(&format!( " - {} [{} users]", room.room_id, room.users_count));
+                        }else{
+                            info(&format!( " - {}", room.room_id));
+                        }
                     }
                 }
-                Err(_) => {}
             }
+            Err(_) => error("Failed to parse server response"),
         }
     }
     
@@ -343,14 +347,13 @@ impl ChatClient {
     pub async fn get_active_users(&mut self) {
         let room = match &self.current_room {
             Some(current_room) => current_room,
-            None => return, // exit if not in a room
+            None => return, 
         };
 
         let req = ListRoomUsersRequest {
             room_id: room.to_string(),
         };
 
-        // handle connection errors immediately
         let response = match self.send_json_to_server("list_room_users", &req).await {
             Ok(resp) => resp,
             Err(e) => {
