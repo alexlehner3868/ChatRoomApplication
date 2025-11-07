@@ -43,12 +43,14 @@ pub struct CreateRoomRequest{
     pub room_id: String,
 // MUST IMPLEMENT POLICY VALIDATION(even if client already has validation)
     pub room_password: String,
+    pub user_id: String,
 }
 
 #[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct JoinRoomRequest{
     pub room_id: String,
     pub room_password: String,
+    pub user_id: String,
 }
 
 #[derive(Serialize,Deserialize,Debug,Clone)]

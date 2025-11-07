@@ -121,12 +121,12 @@ impl ChatClient {
         let req = JoinRoomRequest {
             room_id: room_id.to_string(),
             room_password: password.to_string(),
+            user_id: self.username.clone().unwrap_or_default(),
         };
 
         match self.send_json_to_server("join_room", &req).await {
             Ok(resp_str) => {
                 if let Ok(resp) = serde_json::from_str::<JoinRoomResponse>(&resp_str) {
-                    success(&format!("[Connected to '{}']", resp.room_id));
                     self.current_room = Some(resp.room_id.clone());
                 
                     if !resp.chat_history.is_empty() {
@@ -179,7 +179,7 @@ impl ChatClient {
             Ok(resp) => resp,
             Err(e) => {
                 error(&format!("Connection error: {}", e));
-                return; // exit the function on error
+                return; 
             }
         };
 
@@ -225,7 +225,7 @@ impl ChatClient {
                 if list_resp.rooms.is_empty() {
                     info(" - No chat rooms exist");
                 } else {
-                    for room in list_resp.rooms {
+                    for room in list_resp.rooms { //TODO - change to user .iter
                         if active_room_only {
                             info(&format!( " - {} [{} users]", room.room_id, room.users_count));
                         }else{
@@ -243,6 +243,7 @@ impl ChatClient {
       let req = CreateRoomRequest {
         room_id: room_id.to_string(),
         room_password: password.to_string(),
+        user_id: self.username.clone().unwrap_or_default(),
         };
 
         let response = match self.send_json_to_server("create_room", &req).await {
