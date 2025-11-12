@@ -6,5 +6,6 @@ TODO
 - what happens on clinet side is a user is kicked by another user
 - when a user /quit, need to communicate to the server that the user is no longer active so they are not still ina room
 - Get help menu to highlight active commands based on where you are 
+- On /quit --> send logout message to server  
 - protect passwords in create and join rooms??
 - Comment Code! 

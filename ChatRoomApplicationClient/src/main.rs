@@ -1,7 +1,8 @@
-
 use std::io::{self, Write};
 use tokio;
 use rpassword::read_password;
+use tokio::sync::mpsc;
+use futures_util::TryStreamExt;
 
 mod color_formatting;
 mod chat_client; 
@@ -9,6 +10,7 @@ mod messages;
 
 use color_formatting::*;
 use chat_client::ChatClient;
+use crate::messages::ServerWsMessage;
 
 async fn sign_up(client: &mut ChatClient) { 
     header("Sign Up");
@@ -30,11 +32,8 @@ async fn sign_up(client: &mut ChatClient) {
             return;
         }
 
-        if username.is_empty() {
-            error("Invalid username — cannot be empty");
-            continue;
-        } else if username.starts_with('/') {
-            error("Invalid username — cannot start with /");
+        if username.is_empty() || username.starts_with('/') {
+            error("Invalid username");
             continue;
         }
 
@@ -48,7 +47,7 @@ async fn sign_up(client: &mut ChatClient) {
     info("- At least one special character");
     info("(Type /quit to cancel)");
 
-    let password = loop { // Change to use read_password for security (ALEX todo)
+    let password = loop {
         print!("Password: ");
         io::stdout().flush().unwrap();
 
@@ -117,8 +116,11 @@ async fn login(client: &mut ChatClient) -> bool {
         return false;
     }
 
-    client.login(username, &password).await
-
+    if client.login(username, &password).await {
+        true
+    } else {
+        false
+    }
 }
 
 
@@ -156,17 +158,6 @@ fn print_help() {
     println!("==============================");
 }
 
-async fn create_room(client: &mut ChatClient, args: Vec<&str>) {
-    if args.len() < 3 {
-        warning("Usage: /create <room_id> <password>");
-        return;
-    }
-
-    let room_id = args[1];
-    let password = args[2];
-    client.create_room(room_id, password).await;
-}
-
 async fn delete_room(client: &mut ChatClient, args: Vec<&str>){
     if args.len() < 2 {
         warning("Usage: /delete <room_id>");
@@ -177,35 +168,37 @@ async fn delete_room(client: &mut ChatClient, args: Vec<&str>){
     client.delete_room(room_id).await;
 }
 
-async fn join_room(client: &mut ChatClient, args: Vec<&str>) {
-     // TODO connect to chat cliebnt ALEX
-    if args.len() < 3 {
-        warning("Usage: /join <room_id> <password>");
-        return;
-    }
 
-    let room_id = args[1];
-    let password = args[2];
-
-    if client.join_room(room_id, password).await{
-        in_chat_room(client, room_id).await;
-    }
-}
-
-async fn kick_user(client: &mut ChatClient, args: Vec<&str>) {
-    if args.len() < 2 {
-        warning("Usage: /kick <username>");
-        return;
-    }
-    
-    client.kick_user(args[1]).await;
-}
-
-async fn in_chat_room(client: &mut ChatClient, room_id: &str){
-     // TODO connect to chat cliebnt ALEX
-     // TODO get async messages and send async messages
-
+async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
     success(&format!("[Connected to {}]", room_id));
+    let username = client.username.clone();
+    
+    // Spawn a task to handle incoming WebSocket messages
+    let mut receiver = client.ws_receiver.take().unwrap();
+    tokio::spawn(async move {
+        while let Ok(Some(msg)) = receiver.try_next().await {
+            if let Ok(text) = msg.to_text() {
+                if let Ok(parsed) = serde_json::from_str::<ServerWsMessage>(text) {
+                    match parsed {
+                        ServerWsMessage::MessageBroadcast(chat_msg) => {
+                            if chat_msg.user_id == "system" {
+                                info(&format!("{}: {}", chat_msg.user_id, chat_msg.content));
+                            } else if chat_msg.user_id != username.clone().unwrap_or_default() {
+                                user_message(&chat_msg.timestamp, &chat_msg.user_id, &chat_msg.content);
+                            }
+                        }
+                        ServerWsMessage::Pong { timestamp } => {
+                            // TODO: handle ping-pong if needed
+                        }
+                        ServerWsMessage::Error { error_msg } => {
+                            error(&error_msg);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    });
 
     loop {
         system_prompt(&format!("[{}]> ", room_id));
@@ -220,37 +213,74 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str){
         if input.is_empty() {
             continue;
         }
-
         let args: Vec<&str> = input.split_whitespace().collect();
+        
+        if args.is_empty() {
+            continue;
+        }
 
         match args[0] {
-            "/help" => print_help(),
             "/leave" => {
                 client.leave_room(room_id).await;
                 success("[Returned to Lobby]");
                 break;
             }
+            "/help" => print_help(),
             "/active_users" => client.get_active_users().await,
-            "/kick" => kick_user(client, args).await,   // TODO connect to chat cliebnt ALEX
+            "/kick" => kick_user(client, args.clone()).await,   // TODO connect to chat cliebnt ALEX
             "/quit" => {
                 warning("Quitting Program");
                 std::process::exit(1);
             }
-            _msg => {
-                 // How to send and recieve async messages ALEX
+            msg => {
+                client.chat_message(msg).await;
             }
         }
     }
 }
 
+async fn join_room(client: &mut ChatClient, args: Vec<&str>) {
+    if args.len() < 3 {
+        warning("Usage: /join <room_id> <password>");
+        return;
+    }
+
+    let room_id = args[1];
+    let password = args[2];
+
+    if client.join_room(room_id, password).await {
+        in_chat_room(client, room_id).await;
+    }
+}
+
+async fn kick_user(client: &mut ChatClient, args: Vec<&str>) {
+    if args.len() < 2 {
+        warning("Usage: /kick <username>");
+        return;
+    }
+    
+    client.kick_user(args[1]).await;
+}
+
+
+async fn create_room(client: &mut ChatClient, args: Vec<&str>) {
+    if args.len() < 3 {
+        warning("Usage: /create <room_id> <password>");
+        return;
+    }
+
+    let room_id = args[1];
+    let password = args[2];
+    client.create_room(room_id, password).await;
+}
 
 async fn alex_chat_room_loop(client: &mut ChatClient) {
-    success("Welcome to the Rust Chat Room Application!");
+    success("Welcome to the Rust Chat Room!");
     let mut logged_in = false;
 
     loop {
         while !logged_in {
-            info("[Please /login or /sign_up or get /help]");
+            info("[Please /login or /sign_up or /help]");
             system_prompt(">");
             io::stdout().flush().unwrap();
 
@@ -261,21 +291,21 @@ async fn alex_chat_room_loop(client: &mut ChatClient) {
 
             let user_input = input.trim();
             match user_input {
-                "/login" => logged_in = login(client).await,  
+                "/login" => logged_in = login(client).await,
                 "/sign_up" => sign_up(client).await,
                 "/help" => print_help(),
                 "/quit" => {
                     warning("Quitting Program");
                     std::process::exit(1);
                 }
-                _ => error("Unknown Command - get /help"),
+                _ => error("Unknown Command - try /help"),
             }
         }
 
         success("Connected to Chat Room Lobby");
 
         while logged_in {
-            system_prompt("[Lobby] > ");
+            system_prompt("[Lobby]> ");
             io::stdout().flush().unwrap();
 
             let mut user_input = String::new();
@@ -285,24 +315,26 @@ async fn alex_chat_room_loop(client: &mut ChatClient) {
 
             let input = user_input.trim();
             let args: Vec<&str> = input.split_whitespace().collect();
-            if args.is_empty() { continue; }
+            if args.is_empty() {
+                continue;
+            }
 
             match args[0] {
-                "/help" => print_help(),
-                "/quit" => {
-                    warning("Quitting Program");
-                    std::process::exit(1);
-                }
+                "/join" => join_room(client, args.clone()).await,
                 "/all_rooms" => client.show_all_rooms(false).await,    
-                "/active_rooms" => client.show_all_rooms(true).await,  // TODO connect to chat cliebnt ALEX
-                "/create" => create_room(client, args.clone()).await,  // TODO connect to chat cliebnt ALEX
-                "/delete" => delete_room(client, args.clone()).await,  // TODO connect to chat cliebnt ALEX
-                "/join" => join_room(client, args.clone()).await,  // TODO connect to chat cliebnt ALEX
+                "/active_rooms" => client.show_all_rooms(true).await,  
+                "/create" => create_room(client, args.clone()).await,
+                "/delete" => delete_room(client, args.clone()).await,  
                 "/logout" => {
                     client.logout().await;
                     logged_in = false;
                 }
-                _ => error("Unknown Command - get /help"),
+                "/quit" => {
+                    warning("Quitting Program");
+                    std::process::exit(1);
+                }
+                "/help" => print_help(),
+                _ => error("Unknown Command - try /help"),
             }
         }
     }
@@ -310,10 +342,8 @@ async fn alex_chat_room_loop(client: &mut ChatClient) {
 
 #[tokio::main]
 async fn main() {
-
-    // Configure the client 
-    let server_url = "http://127.0.0.1:8000"; 
-    let mut client = ChatClient::init(server_url);
-
+    let server_url_ws = "ws://127.0.0.1:3000";
+    let server_url = "http://127.0.0.1:3000";
+    let mut client = ChatClient::init(server_url, server_url_ws);
     alex_chat_room_loop(&mut client).await;
 }

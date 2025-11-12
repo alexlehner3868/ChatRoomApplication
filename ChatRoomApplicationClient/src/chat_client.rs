@@ -1,28 +1,76 @@
 use reqwest::Client;
 use serde::{Serialize, Deserialize};
+use chrono::Utc;
+use futures_util::{SinkExt, StreamExt};
+use futures_util::stream::{SplitSink, SplitStream};
+use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
+use tokio::net::TcpStream;
+use tokio_tungstenite::MaybeTlsStream;
 
 use crate::color_formatting::*;
 use crate::messages::*;
 
 pub struct ChatClient {
     pub server_url: String,
+    pub server_url_ws: String,
     pub http: Client,
     pub auth_token: Option<String>,
     pub username: Option<String>,
     pub current_room: Option<String>,
+    pub ws_sender: Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>,
+    pub ws_receiver: Option<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
 }
 
 impl ChatClient {
-
-    pub fn init(server_url: &str) -> Self {
+    pub fn init(server_url: &str, ws_url: &str) -> Self {
         ChatClient {
             server_url: server_url.to_string(),
+            server_url_ws: ws_url.to_string(),
             http: Client::new(),
             auth_token: None,
             username: None,
             current_room: None,
+            ws_sender: None,
+            ws_receiver: None,
         }
     }
+
+    pub async fn connect_ws(&mut self) -> bool {
+        let user_id = self.username.clone().unwrap_or_default();
+        let ws_url = format!("{}/ws?user_id={}", self.server_url_ws, user_id);
+
+        match connect_async(&ws_url).await {
+            Ok((ws_stream, _)) => {
+                let (sender, receiver) = ws_stream.split();
+                self.ws_sender = Some(sender);
+                self.ws_receiver = Some(receiver);
+                success("Connected to WebSocket server!");
+                true
+            }
+            Err(e) => {
+                error(&format!("WebSocket connection failed: {}", e));
+                false
+            }
+        }
+    }
+
+    pub async fn chat_message(&mut self, content: &str) {
+        if let Some(sender) = &mut self.ws_sender {
+            let msg = ClientWsMessage::SendMessage {
+                room_id: self.current_room.clone().unwrap_or_default(),
+                content: content.to_string(),
+            };
+            let serialized = serde_json::to_string(&msg).unwrap();
+            if sender.send(Message::Text(serialized.into())).await.is_ok() {
+                my_message(&Utc::now().to_rfc3339(), content);
+            } else {
+                error("Failed to send message through WebSocket");
+            }
+        } else {
+            error("Not connected to WebSocket server");
+        }
+    }
+
 
     pub async fn send_json_to_server<T: Serialize>( &self, endpoint: &str, msg: &T,) -> Result<String, reqwest::Error> {
         let mut request = self.http.post(format!("{}/{}", self.server_url, endpoint)).json(msg);
@@ -34,6 +82,7 @@ impl ChatClient {
         let response = request.send().await?.text().await?;
         Ok(response)
     }
+
 
     pub async fn create_user(&mut self, username: &str, password: &str) -> bool {
         let req = RegisterRequest {
@@ -74,13 +123,14 @@ impl ChatClient {
         false
     }
 
-
     pub async fn login(&mut self, username: &str, password: &str) -> bool {
         let req = LoginRequest {
             user_id: username.to_string(),
             password: password.to_string()
         };
-
+          self.username = Some(username.to_string());
+          true
+        /*
         match self.send_json_to_server("login", &req).await {
             Ok(resp_str) => {
                 if let Ok(resp) = serde_json::from_str::<AuthSuccessResponse>(&resp_str) {
@@ -114,8 +164,8 @@ impl ChatClient {
                 false
             }
         }
+            */
     }
-
 
     pub async fn join_room(&mut self, room_id: &str, password: &str) -> bool {
         let req = JoinRoomRequest {
@@ -128,13 +178,19 @@ impl ChatClient {
             Ok(resp_str) => {
                 if let Ok(resp) = serde_json::from_str::<JoinRoomResponse>(&resp_str) {
                     self.current_room = Some(resp.room_id.clone());
-                
+
+                    // Connect WebSocket
+                    if !self.connect_ws_for_room(&resp.room_id).await {
+                        return false;
+                    }
+
+                    // Chat History
                     if !resp.chat_history.is_empty() {
                         header("Chat History");
                         for msg in resp.chat_history {
                             if msg.user_id == self.username.clone().unwrap_or_default() {
                                 my_message(&msg.timestamp, &msg.content);
-                            }else{
+                            } else {
                                 user_message(&msg.timestamp, &msg.user_id, &msg.content);
                             }
                         }
@@ -169,38 +225,25 @@ impl ChatClient {
         }
     }
 
-
     pub async fn leave_room(&mut self, room_id: &str) {
         let msg = ClientWsMessage::LeaveRoom {
             room_id: room_id.to_string(),
         };
 
-        let response = match self.send_json_to_server("leave_room", &msg).await {
-            Ok(resp) => resp,
-            Err(e) => {
-                error(&format!("Connection error: {}", e));
-                return; 
+        let _ = self.send_json_to_server("leave_room", &msg).await;
+
+        // Close WebSocket
+        if let Some(mut sender) = self.ws_sender.take() {
+            if let Err(e) = sender.close().await {
+                error(&format!("Failed to close WebSocket: {}", e));
             }
-        };
-
-        if let Ok(err_resp) = serde_json::from_str::<ErrorResponse>(&response) {
-            match err_resp {
-                ErrorResponse::AuthenticationFailed { message } => {
-                    error(&format!("Authentication failed: {}", message));
-                    return;
-                }
-
-                ErrorResponse::ServerError { message } => {
-                    error(&format!("Server error: {}", message));
-                    return;
-                }
-                _ => {}
-            };
         }
-
+        self.ws_receiver = None;
         self.current_room = None;
+
         success(&format!("Successfully left {}", room_id));
     }
+
 
 
     pub async fn show_all_rooms(&mut self, active_room_only: bool) {
@@ -424,5 +467,24 @@ impl ChatClient {
             }
         }
     }
+
+    pub async fn connect_ws_for_room(&mut self, room_id: &str) -> bool {
+        let user_id = self.username.clone().unwrap_or_default();
+        let ws_url = format!("{}/ws?user_id={}&room_id={}", self.server_url_ws, user_id, room_id);
+
+        match connect_async(&ws_url).await {
+            Ok((ws_stream, _)) => {
+                let (sender, receiver) = ws_stream.split();
+                self.ws_sender = Some(sender);
+                self.ws_receiver = Some(receiver);
+                true
+            }
+            Err(e) => {
+                error(&format!("WebSocket connection failed: {}", e));
+                false
+            }
+        }
+    }
+
 
 }

@@ -154,7 +154,7 @@ pub struct ChatMessage{
     pub room_id: String,
     pub user_id: String,
     // potential primary key
-    pub message_id: String,
+    // pub message_id: String,
     pub content: String,
     pub timestamp: String,
 }
