@@ -6,24 +6,12 @@ use futures_util::TryStreamExt;
 mod color_formatting;
 mod chat_client; 
 mod messages;
+mod helper_functions;
 
 use color_formatting::*;
+use helper_functions::*;
 use chat_client::ChatClient;
 use crate::messages::ServerWsMessage;
-
-fn erase_last_line() {
-    // Move up one line in the terminal
-    print!("\x1b[1A");
-    // Clear the line
-    print!("\x1b[2K");
-    io::stdout().flush().unwrap();
-}
-
-pub fn erase_current_line() {
-    // Clear current line
-    print!("\r\x1B[K");
-    io::stdout().flush().unwrap();
-}
 
 async fn sign_up(client: &mut ChatClient) { 
     header("Sign Up");
@@ -336,7 +324,6 @@ async fn create_room(client: &mut ChatClient, args: Vec<&str>) {
     let password = args[2];
     client.create_room(room_id, password).await;
 }
-
 
 
 #[tokio::main]

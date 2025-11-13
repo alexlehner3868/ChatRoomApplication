@@ -2,7 +2,7 @@ use colored::*;
 use std::io::{self, Write};
 use chrono::{DateTime, Local};
 
-/*!
+/*
  * color_formatting.rs
  *
  * This file has helper function to standardize formatting for client side printing
@@ -60,7 +60,6 @@ pub fn info(text: &str) {
 }
 
 pub fn user_message(timestamp: &str, username: &str, message: &str) {
-
     let short_time = DateTime::parse_from_rfc3339(timestamp).map(|dt| dt.with_timezone(&Local).format("%m-%d %H:%M").to_string()).unwrap_or_else(|_| timestamp.to_string());
     println!("[{}] {}: {}", short_time.dimmed(), username.green().bold(),message.white());
 }
