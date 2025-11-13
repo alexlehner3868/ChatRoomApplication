@@ -221,7 +221,7 @@ impl ChatClient {
         self.ws_receiver = None;
         self.current_room = None;
 
-        success(&format!("Successfully left {}", room_id));
+        system_message(&format!("[Left {}]", room_id));
     }
 
 

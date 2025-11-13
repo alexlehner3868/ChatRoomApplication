@@ -16,7 +16,7 @@ use user_commands::*;
 
 
 async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
-    success(&format!("[Connected to {}]", room_id));
+    success(&format!("Connected to {}", room_id));
 
     // Channel to signal that a user needs to exit the room
     let (exit_tx, exit_rx) = tokio::sync::watch::channel(false);
@@ -99,7 +99,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
         // Check if forced to leave room (on kick or room deletion)
         if *exit_rx.borrow() {
             client.current_room = None;
-            success("[Returned to Lobby]");
+            success("Returned to Lobby");
             break;
         }
 
