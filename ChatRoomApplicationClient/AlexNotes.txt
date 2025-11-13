@@ -2,5 +2,7 @@ TODO
 - Finish connecting all functions to chat client 
     - Add get more history (can I clear the chat to reprint all of them with it?)
 - Get help menu to highlight active commands based on where you are 
+- Confirm that the  erase_last_line(); in in_chat_room() doesnt erase /kick and /all_active users
+- Formatting for lists of active users and active rooms and cofnrim that it workds
 - protect passwords in create and join rooms??
 - Comment Code! 
