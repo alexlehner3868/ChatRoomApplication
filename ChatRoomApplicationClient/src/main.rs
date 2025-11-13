@@ -12,6 +12,14 @@ use color_formatting::*;
 use chat_client::ChatClient;
 use crate::messages::ServerWsMessage;
 
+fn erase_last_line() {
+    // Move cursor up one line
+    print!("\x1b[1A");
+    // Clear the entire line
+    print!("\x1b[2K");
+    io::stdout().flush().unwrap();
+}
+
 async fn sign_up(client: &mut ChatClient) { 
     header("Sign Up");
     info("Please enter a username (type /quit to cancel):");
@@ -168,11 +176,10 @@ async fn delete_room(client: &mut ChatClient, args: Vec<&str>){
     client.delete_room(room_id).await;
 }
 
-
 async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
     success(&format!("[Connected to {}]", room_id));
     let username = client.username.clone();
-    
+   
     // Spawn a task to handle incoming WebSocket messages
     let mut receiver = client.ws_receiver.take().unwrap();
     tokio::spawn(async move {
@@ -185,11 +192,10 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                                 info(&format!("{}: {}", chat_msg.user_id, chat_msg.content));
                             } else if chat_msg.user_id != username.clone().unwrap_or_default() {
                                 user_message(&chat_msg.timestamp, &chat_msg.user_id, &chat_msg.content);
+                                system_prompt(&format!("[{}]> ", chat_msg.room_id));
                             }
                         }
-                        ServerWsMessage::Pong { timestamp } => {
-                            // TODO: handle ping-pong if needed
-                        }
+                        ServerWsMessage::Pong { timestamp } => {}
                         ServerWsMessage::Error { error_msg } => {
                             error(&error_msg);
                         }
@@ -213,26 +219,28 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
         if input.is_empty() {
             continue;
         }
+
+        erase_last_line();
+
         let args: Vec<&str> = input.split_whitespace().collect();
-        
         if args.is_empty() {
             continue;
         }
 
         match args[0] {
             "/leave" => {
-                client.leave_room(room_id).await;
+                client.leave_room(&room_id).await;
                 success("[Returned to Lobby]");
                 break;
             }
             "/help" => print_help(),
             "/active_users" => client.get_active_users().await,
-            "/kick" => kick_user(client, args.clone()).await,   // TODO connect to chat cliebnt ALEX
+            "/kick" => kick_user(client, args.clone()).await, 
             "/quit" => {
                 warning("Quitting Program");
                 std::process::exit(1);
             }
-            msg => {
+            _ => {
                 client.chat_message(input).await;
             }
         }
