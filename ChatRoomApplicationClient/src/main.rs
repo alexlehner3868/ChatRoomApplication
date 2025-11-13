@@ -3,6 +3,8 @@ use tokio;
 use rpassword::read_password;
 use tokio::sync::mpsc;
 use futures_util::TryStreamExt;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 mod color_formatting;
 mod chat_client; 
@@ -13,10 +15,16 @@ use chat_client::ChatClient;
 use crate::messages::ServerWsMessage;
 
 fn erase_last_line() {
-    // Move cursor up one line
+    // Move up one line in the terminal
     print!("\x1b[1A");
-    // Clear the entire line
+    // Clear the line
     print!("\x1b[2K");
+    io::stdout().flush().unwrap();
+}
+
+pub fn erase_current_line() {
+    // Clear current line
+    print!("\r\x1B[K");
     io::stdout().flush().unwrap();
 }
 
@@ -191,6 +199,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                             if chat_msg.user_id == "system" {
                                 info(&format!("{}: {}", chat_msg.user_id, chat_msg.content));
                             } else if chat_msg.user_id != username.clone().unwrap_or_default() {
+                                erase_current_line();
                                 user_message(&chat_msg.timestamp, &chat_msg.user_id, &chat_msg.content);
                                 system_prompt(&format!("[{}]> ", chat_msg.room_id));
                             }
