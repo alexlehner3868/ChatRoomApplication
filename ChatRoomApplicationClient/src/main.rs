@@ -6,10 +6,10 @@ use futures_util::TryStreamExt;
 mod color_formatting;
 mod chat_client; 
 mod messages;
-mod helper_functions;
+mod terminal_erasing;
 
 use color_formatting::*;
-use helper_functions::*;
+use terminal_erasing::*;
 use chat_client::ChatClient;
 use crate::messages::ServerWsMessage;
 
