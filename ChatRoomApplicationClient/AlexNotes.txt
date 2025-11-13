@@ -2,6 +2,7 @@ TODO
 - Finish connecting all functions to chat client 
     - Add get more history (can I clear the chat to reprint all of them with it?)
 - Send messages in a chat room 
+    - Get them too look nice 
 - Async Display messages
 - what happens on clinet side is a user is kicked by another user
 - when a user /quit, need to communicate to the server that the user is no longer active so they are not still ina room

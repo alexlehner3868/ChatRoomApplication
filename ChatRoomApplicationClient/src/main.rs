@@ -233,7 +233,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                 std::process::exit(1);
             }
             msg => {
-                client.chat_message(msg).await;
+                client.chat_message(input).await;
             }
         }
     }
