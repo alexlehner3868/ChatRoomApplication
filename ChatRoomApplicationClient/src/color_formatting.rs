@@ -32,7 +32,7 @@ pub fn user_message(timestamp: &str, username: &str, message: &str) {
     println!("[{}] {}: {}", short_time.dimmed(), username.green().bold(),message.white());
 }
 
-pub fn my_message(timestamp: &str, message: &str) {
+pub fn my_message(message: &str) {
     let width = 80; // adjust to terminal width
     println!("{:>width$} {}", "You:".blue().bold(), message.white(),width = width);
 }

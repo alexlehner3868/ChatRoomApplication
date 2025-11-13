@@ -1,6 +1,5 @@
 use reqwest::Client;
-use serde::{Serialize, Deserialize};
-use chrono::Utc;
+use serde::{Serialize};
 use futures_util::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream};
@@ -35,25 +34,6 @@ impl ChatClient {
         }
     }
 
-    pub async fn connect_ws(&mut self) -> bool {
-        let user_id = self.username.clone().unwrap_or_default();
-        let ws_url = format!("{}/ws?user_id={}", self.server_url_ws, user_id);
-
-        match connect_async(&ws_url).await {
-            Ok((ws_stream, _)) => {
-                let (sender, receiver) = ws_stream.split();
-                self.ws_sender = Some(sender);
-                self.ws_receiver = Some(receiver);
-                success("Connected to WebSocket server!");
-                true
-            }
-            Err(e) => {
-                error(&format!("WebSocket connection failed: {}", e));
-                false
-            }
-        }
-    }
-
     pub async fn chat_message(&mut self, content: &str) {
         if let Some(sender) = &mut self.ws_sender {
             let msg = ClientWsMessage::SendMessage {
@@ -62,7 +42,7 @@ impl ChatClient {
             };
             let serialized = serde_json::to_string(&msg).unwrap();
             if sender.send(Message::Text(serialized.into())).await.is_ok() {
-                my_message(&Utc::now().to_rfc3339(), content);
+                my_message(content);
             } else {
                 error("Failed to send message through WebSocket");
             }
@@ -189,7 +169,7 @@ impl ChatClient {
                         header("Chat History");
                         for msg in resp.chat_history {
                             if msg.user_id == self.username.clone().unwrap_or_default() {
-                                my_message(&msg.timestamp, &msg.content);
+                                my_message(&msg.content);
                             } else {
                                 user_message(&msg.timestamp, &msg.user_id, &msg.content);
                             }

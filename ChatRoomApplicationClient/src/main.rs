@@ -1,10 +1,7 @@
 use std::io::{self, Write};
 use tokio;
 use rpassword::read_password;
-use tokio::sync::mpsc;
 use futures_util::TryStreamExt;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 mod color_formatting;
 mod chat_client; 
@@ -204,7 +201,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                                 system_prompt(&format!("[{}]> ", chat_msg.room_id));
                             }
                         }
-                        ServerWsMessage::Pong { timestamp } => {}
+                        ServerWsMessage::Pong { .. } => {}
                         ServerWsMessage::Error { error_msg } => {
                             error(&error_msg);
                         }
@@ -291,8 +288,15 @@ async fn create_room(client: &mut ChatClient, args: Vec<&str>) {
     client.create_room(room_id, password).await;
 }
 
-async fn alex_chat_room_loop(client: &mut ChatClient) {
-    success("Welcome to the Rust Chat Room!");
+
+
+#[tokio::main]
+async fn main() {
+    let server_url_ws = "ws://127.0.0.1:3000";
+    let server_url = "http://127.0.0.1:3000";
+    let mut client = ChatClient::init(server_url, server_url_ws);
+    
+     success("Welcome to the Rust Chat Room!");
     let mut logged_in = false;
 
     loop {
@@ -308,8 +312,8 @@ async fn alex_chat_room_loop(client: &mut ChatClient) {
 
             let user_input = input.trim();
             match user_input {
-                "/login" => logged_in = login(client).await,
-                "/sign_up" => sign_up(client).await,
+                "/login" => logged_in = login(&mut client).await,
+                "/sign_up" => sign_up(&mut client).await,
                 "/help" => print_help(),
                 "/quit" => {
                     warning("Quitting Program");
@@ -337,11 +341,11 @@ async fn alex_chat_room_loop(client: &mut ChatClient) {
             }
 
             match args[0] {
-                "/join" => join_room(client, args.clone()).await,
+                "/join" => join_room(&mut client, args.clone()).await,
                 "/all_rooms" => client.show_all_rooms(false).await,    
                 "/active_rooms" => client.show_all_rooms(true).await,  
-                "/create" => create_room(client, args.clone()).await,
-                "/delete" => delete_room(client, args.clone()).await,  
+                "/create" => create_room(&mut client, args.clone()).await,
+                "/delete" => delete_room(&mut client, args.clone()).await,  
                 "/logout" => {
                     client.logout().await;
                     logged_in = false;
@@ -355,12 +359,4 @@ async fn alex_chat_room_loop(client: &mut ChatClient) {
             }
         }
     }
-}
-
-#[tokio::main]
-async fn main() {
-    let server_url_ws = "ws://127.0.0.1:3000";
-    let server_url = "http://127.0.0.1:3000";
-    let mut client = ChatClient::init(server_url, server_url_ws);
-    alex_chat_room_loop(&mut client).await;
 }
