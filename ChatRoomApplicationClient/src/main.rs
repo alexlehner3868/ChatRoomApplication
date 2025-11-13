@@ -185,8 +185,16 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
     success(&format!("[Connected to {}]", room_id));
     let username = client.username.clone();
    
+    // Channel to signal main loop to exit (e.g., kicked or room deleted)
+    let (exit_tx, mut exit_rx) = tokio::sync::watch::channel(false);
+
     // Spawn a task to handle incoming WebSocket messages
     let mut receiver = client.ws_receiver.take().unwrap();
+    let current_room = room_id.to_string();
+
+    let username_clone = username.clone();
+    let exit_tx_clone = exit_tx.clone();
+
     tokio::spawn(async move {
         while let Ok(Some(msg)) = receiver.try_next().await {
             if let Ok(text) = msg.to_text() {
@@ -195,10 +203,44 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                         ServerWsMessage::MessageBroadcast(chat_msg) => {
                             if chat_msg.user_id == "system" {
                                 info(&format!("{}: {}", chat_msg.user_id, chat_msg.content));
-                            } else if chat_msg.user_id != username.clone().unwrap_or_default() {
+                            } else if chat_msg.user_id != username_clone.clone().unwrap_or_default() {
                                 erase_current_line();
                                 user_message(&chat_msg.timestamp, &chat_msg.user_id, &chat_msg.content);
                                 system_prompt(&format!("[{}]> ", chat_msg.room_id));
+                            }
+                        }
+                        ServerWsMessage::RoomDeleted { room_id: deleted_room } => {
+                            if deleted_room == current_room {
+                                warning("[Room has been deleted]");
+                                let _ = exit_tx_clone.send(true);
+                                break;
+                            }
+                        }
+                        ServerWsMessage::UserJoined { room_id: joined_room, user_id: joined_user } => {
+                            if joined_room == current_room && joined_user != username_clone.clone().unwrap_or_default() {
+                                erase_current_line();
+                                system_message(&format!("[{} has joined]", joined_user));
+                                system_prompt(&format!("[{}]> ", joined_room));
+                            }
+                        }
+                        ServerWsMessage::UserLeft { room_id: left_room, user_id: left_user } => {
+                            if left_room == current_room && left_user != username_clone.clone().unwrap_or_default() {
+                                erase_current_line();
+                                system_message(&format!("[{} has left]", left_user));
+                                system_prompt(&format!("[{}]> ", left_room));
+                            }
+                        }
+                        ServerWsMessage::UserKicked { room_id: kicked_room, user_id: kicked_user } => {
+                            if kicked_room == current_room {
+                                erase_current_line();
+                                if kicked_user == username_clone.clone().unwrap_or_default() {
+                                    warning("[You have been kicked]");
+                                    let _ = exit_tx_clone.send(true);
+                                    break;
+                                } else {
+                                    system_message(&format!("[{} has been kicked]", kicked_user));
+                                    system_prompt(&format!("[{}]> ", kicked_room));
+                                }
                             }
                         }
                         ServerWsMessage::Pong { .. } => {}
@@ -213,6 +255,13 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
     });
 
     loop {
+        // Check if forced to leave room
+        if *exit_rx.borrow() {
+            client.current_room = None;
+            success("[Returned to Lobby]");
+            break;
+        }
+
         system_prompt(&format!("[{}]> ", room_id));
         io::stdout().flush().unwrap();
 
@@ -252,6 +301,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
         }
     }
 }
+
 
 async fn join_room(client: &mut ChatClient, args: Vec<&str>) {
     if args.len() < 3 {

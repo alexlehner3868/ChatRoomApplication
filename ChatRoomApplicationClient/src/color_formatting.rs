@@ -41,3 +41,7 @@ pub fn system_prompt(text: &str) {
     print!("{}", text.cyan());
     io::stdout().flush().unwrap();
 }
+
+pub fn system_message(message: &str){
+    println!("{}", message.dimmed());
+}
