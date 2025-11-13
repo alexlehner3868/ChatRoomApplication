@@ -351,7 +351,7 @@ impl ChatClient {
             }
         };
 
-        if let Ok(resp) = serde_json::from_str::<SuccessResponse>(&response) {
+        if let Ok(_resp) = serde_json::from_str::<SuccessResponse>(&response) {
             success(&format!("User '{}' has been kicked from room", username));
 
         } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {

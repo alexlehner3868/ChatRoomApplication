@@ -186,7 +186,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
     let username = client.username.clone();
    
     // Channel to signal main loop to exit (e.g., kicked or room deleted)
-    let (exit_tx, mut exit_rx) = tokio::sync::watch::channel(false);
+    let (exit_tx, exit_rx) = tokio::sync::watch::channel(false);
 
     // Spawn a task to handle incoming WebSocket messages
     let mut receiver = client.ws_receiver.take().unwrap();
@@ -247,7 +247,6 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                         ServerWsMessage::Error { error_msg } => {
                             error(&error_msg);
                         }
-                        _ => {}
                     }
                 }
             }
