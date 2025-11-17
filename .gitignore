@@ -1,1 +1,5 @@
 /ChatRoomApplicationServer/target
+.DS_Store
+ChatRoomApplicationClient/.DS_Store
+ChatRoomApplicationClient/target/
+ChatRoomApplicationServer/.DS_Store
