@@ -1,5 +1,12 @@
+<<<<<<< HEAD
 /ChatRoomApplicationServer/target
 .DS_Store
 ChatRoomApplicationClient/.DS_Store
 ChatRoomApplicationClient/target/
+=======
+ChatRoomApplicationClient/target/
+ChatRoomApplicationServer/target/
+.DS_Store
+ChatRoomApplicationClient/.DS_Store
+>>>>>>> 8bf0808 (Added to .gitignore)
 ChatRoomApplicationServer/.DS_Store
