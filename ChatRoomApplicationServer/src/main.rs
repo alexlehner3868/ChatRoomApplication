@@ -20,9 +20,20 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 // Import your message protocol types
 mod message;
 use message::{
-    ChatMessage, ClientWsMessage, CreateRoomResponse, JoinRoomResponse,
-    ServerWsMessage, ErrorResponse,
+    ChatMessage, ClientWsMessage, CreateRoomResponse, ErrorResponse, JoinRoomResponse,
+    ServerWsMessage,
 };
+
+mod db;
+mod models;
+mod routes;
+mod state;
+
+use crate::db::init_db_from_env;
+use crate::routes::auth::{login_handler, register_handler};
+use crate::state::GlobalState;
+
+use dotenvy::dotenv;
 
 #[derive(Clone)]
 struct Room {
@@ -58,12 +69,21 @@ async fn main() {
         room_channels: Mutex::new(HashMap::new()),
         user_rooms: Mutex::new(HashMap::new()),
     });
+    dotenv().ok();
+    let pool = init_db_from_env().await;
+
+    let state = GlobalState {
+        app_state: app_state.clone(),
+        db_pool: pool.clone(),
+    };
 
     let app = Router::new()
+        .route("/register", post(register_handler))
+        .route("/login", post(login_handler))
         .route("/create_room", post(create_room_handler))
         .route("/join_room", post(join_room_handler))
         .route("/ws", get(websocket_handler))
-        .with_state(app_state);
+        .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
@@ -72,9 +92,8 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-
 // TEMPORARY: For demo purposes, we'll accept user_id in the request body later should use JWT
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 struct CreateRoomRequestDemo {
     room_id: String,
     room_password: String,
@@ -82,13 +101,14 @@ struct CreateRoomRequestDemo {
 }
 
 async fn create_room_handler(
-    State(state): State<Arc<AppState>>,
+    State(state): State<GlobalState>,
     Json(req): Json<CreateRoomRequestDemo>,
 ) -> impl IntoResponse {
+    let state = state.app_state.clone();
     tracing::info!("Create room request: {:?}", req);
 
     let mut rooms = state.rooms.lock().await;
-    
+
     // Check if room already exists
     if rooms.contains_key(&req.room_id) {
         let error = ErrorResponse::RoomAlreadyExists {
@@ -110,12 +130,20 @@ async fn create_room_handler(
 
     // Create broadcast channel for this room
     let (tx, _rx) = broadcast::channel(100);
-    state.room_channels.lock().await.insert(req.room_id.clone(), tx);
+    state
+        .room_channels
+        .lock()
+        .await
+        .insert(req.room_id.clone(), tx);
 
     rooms.insert(req.room_id.clone(), room);
 
     // Add creator to user_rooms mapping (they automatically join their created room)
-    state.user_rooms.lock().await.insert(req.user_id.clone(), req.room_id.clone());
+    state
+        .user_rooms
+        .lock()
+        .await
+        .insert(req.user_id.clone(), req.room_id.clone());
 
     // TODO: Save room to database
     // db::save_room(&req.room_id, &req.room_password, &req.user_id).await;
@@ -130,7 +158,7 @@ async fn create_room_handler(
 
 // TEMPORARY: For demo purposes, we'll accept user_id in the request body
 // In production, this should be extracted from JWT token
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 struct JoinRoomRequestDemo {
     room_id: String,
     room_password: String,
@@ -138,13 +166,14 @@ struct JoinRoomRequestDemo {
 }
 
 async fn join_room_handler(
-    State(state): State<Arc<AppState>>,
+    State(state): State<GlobalState>,
     Json(req): Json<JoinRoomRequestDemo>,
 ) -> impl IntoResponse {
+    let state = state.app_state.clone();
     tracing::info!("Join room request: {:?}", req);
 
     let rooms = state.rooms.lock().await;
-    
+
     // Check if room exists
     let room = match rooms.get(&req.room_id) {
         Some(r) => r,
@@ -165,7 +194,11 @@ async fn join_room_handler(
     }
 
     // Add user to user_rooms mapping
-    state.user_rooms.lock().await.insert(req.user_id.clone(), req.room_id.clone());
+    state
+        .user_rooms
+        .lock()
+        .await
+        .insert(req.user_id.clone(), req.room_id.clone());
 
     // TODO: Load chat history from database
     // let chat_history = db::get_chat_history(&req.room_id, 50).await;
@@ -190,10 +223,11 @@ struct WsQuery {
 async fn websocket_handler(
     ws: WebSocketUpgrade,
     Query(query): Query<WsQuery>,
-    State(state): State<Arc<AppState>>,
+    State(state): State<GlobalState>,
 ) -> impl IntoResponse {
+    let state = state.app_state.clone();
     tracing::info!("WebSocket connection request from user: {}", query.user_id);
-    
+
     // TODO: Validate JWT token from query params or headers
     // For now, we just accept the user_id
 
@@ -217,7 +251,9 @@ async fn handle_websocket(socket: WebSocket, user_id: String, state: Arc<AppStat
             let error = ServerWsMessage::Error {
                 error_msg: "You must join a room before connecting to WebSocket".to_string(),
             };
-            let _ = sender.send(Message::Text(serde_json::to_string(&error).unwrap().into())).await;
+            let _ = sender
+                .send(Message::Text(serde_json::to_string(&error).unwrap().into()))
+                .await;
             return;
         }
     };
@@ -270,14 +306,8 @@ async fn handle_websocket(socket: WebSocket, user_id: String, state: Arc<AppStat
     // Spawn task to receive messages from this user
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(Message::Text(text))) = receiver.next().await {
-            if let Err(e) = handle_client_message(
-                &text,
-                &recv_user_id,
-                &recv_room_id,
-                &tx,
-                &recv_state,
-            )
-            .await
+            if let Err(e) =
+                handle_client_message(&text, &recv_user_id, &recv_room_id, &tx, &recv_state).await
             {
                 tracing::error!("Error handling message: {}", e);
             }
@@ -318,11 +348,14 @@ async fn handle_client_message(
     tx: &broadcast::Sender<String>,
     state: &Arc<AppState>,
 ) -> Result<(), String> {
-    let msg: ClientWsMessage = serde_json::from_str(text)
-        .map_err(|e| format!("Failed to parse message: {}", e))?;
+    let msg: ClientWsMessage =
+        serde_json::from_str(text).map_err(|e| format!("Failed to parse message: {}", e))?;
 
     match msg {
-        ClientWsMessage::SendMessage { room_id: msg_room_id, content } => {
+        ClientWsMessage::SendMessage {
+            room_id: msg_room_id,
+            content,
+        } => {
             // Verify user is in the room they're trying to send to
             if msg_room_id != room_id {
                 return Err("Cannot send to a room you're not in".to_string());
@@ -342,11 +375,13 @@ async fn handle_client_message(
             let broadcast_msg = ServerWsMessage::MessageBroadcast(chat_msg);
             let json = serde_json::to_string(&broadcast_msg)
                 .map_err(|e| format!("Failed to serialize message: {}", e))?;
-            
+
             let _ = tx.send(json);
         }
 
-        ClientWsMessage::LeaveRoom { room_id: leave_room_id } => {
+        ClientWsMessage::LeaveRoom {
+            room_id: leave_room_id,
+        } => {
             if leave_room_id != room_id {
                 return Err("Cannot leave a room you're not in".to_string());
             }
@@ -354,16 +389,19 @@ async fn handle_client_message(
             tracing::info!("User {} leaving room {}", user_id, room_id);
         }
 
-        ClientWsMessage::KickUser { room_id: kick_room_id, user_id: kick_user_id } => {
+        ClientWsMessage::KickUser {
+            room_id: kick_room_id,
+            user_id: kick_user_id,
+        } => {
             // TODO: Verify that the requesting user is the room owner
             // For now, we'll allow anyone to kick (not secure!)
-            
+
             let kicked_msg = ServerWsMessage::UserKicked {
                 room_id: kick_room_id.clone(),
                 user_id: kick_user_id.clone(),
             };
             broadcast_to_room(state, &kick_room_id, &kicked_msg).await;
-            
+
             // TODO: Actually disconnect the kicked user
         }
 
