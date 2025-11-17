@@ -24,6 +24,17 @@ use message::{
     ServerWsMessage,
 };
 
+mod db;
+mod models;
+mod routes;
+mod state;
+
+use crate::db::init_db_from_env;
+use crate::routes::auth::{login_handler, register_handler};
+use crate::state::GlobalState;
+
+use dotenvy::dotenv;
+
 #[derive(Clone)]
 struct Room {
     room_id: String,
@@ -58,12 +69,21 @@ async fn main() {
         room_channels: Mutex::new(HashMap::new()),
         user_rooms: Mutex::new(HashMap::new()),
     });
+    dotenv().ok();
+    let pool = init_db_from_env().await;
+
+    let state = GlobalState {
+        app_state: app_state.clone(),
+        db_pool: pool.clone(),
+    };
 
     let app = Router::new()
+        .route("/register", post(register_handler))
+        .route("/login", post(login_handler))
         .route("/create_room", post(create_room_handler))
         .route("/join_room", post(join_room_handler))
         .route("/ws", get(websocket_handler))
-        .with_state(app_state);
+        .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
@@ -81,9 +101,10 @@ struct CreateRoomRequestDemo {
 }
 
 async fn create_room_handler(
-    State(state): State<Arc<AppState>>,
+    State(state): State<GlobalState>,
     Json(req): Json<CreateRoomRequestDemo>,
 ) -> impl IntoResponse {
+    let state = state.app_state.clone();
     tracing::info!("Create room request: {:?}", req);
 
     let mut rooms = state.rooms.lock().await;
@@ -145,9 +166,10 @@ struct JoinRoomRequestDemo {
 }
 
 async fn join_room_handler(
-    State(state): State<Arc<AppState>>,
+    State(state): State<GlobalState>,
     Json(req): Json<JoinRoomRequestDemo>,
 ) -> impl IntoResponse {
+    let state = state.app_state.clone();
     tracing::info!("Join room request: {:?}", req);
 
     let rooms = state.rooms.lock().await;
@@ -201,8 +223,9 @@ struct WsQuery {
 async fn websocket_handler(
     ws: WebSocketUpgrade,
     Query(query): Query<WsQuery>,
-    State(state): State<Arc<AppState>>,
+    State(state): State<GlobalState>,
 ) -> impl IntoResponse {
+    let state = state.app_state.clone();
     tracing::info!("WebSocket connection request from user: {}", query.user_id);
 
     // TODO: Validate JWT token from query params or headers
