@@ -9,6 +9,7 @@ use tokio_tungstenite::MaybeTlsStream;
 use crate::color_formatting::*;
 use crate::messages::*;
 
+// Struct to store info for the client-server connection
 pub struct ChatClient {
     pub server_url: String,
     pub server_url_ws: String,
@@ -34,13 +35,19 @@ impl ChatClient {
         }
     }
 
+    // Send chat message to the server to send to a room
     pub async fn chat_message(&mut self, content: &str) {
         if let Some(sender) = &mut self.ws_sender {
+            // Construct the message to send
             let msg = ClientWsMessage::SendMessage {
-                room_id: self.current_room.clone().unwrap_or_default(),
-                content: content.to_string(),
+                room_id: self.current_room.clone().unwrap_or_default(), // current room
+                content: content.to_string(), // chat message
             };
+
+            // Convert to JSON
             let serialized = serde_json::to_string(&msg).unwrap();
+            
+            // Send to server through websocket
             if sender.send(Message::Text(serialized.into())).await.is_ok() {
                 my_message(content);
             } else {
@@ -51,7 +58,7 @@ impl ChatClient {
         }
     }
 
-
+    // Function to send JSON. to the server through HTTP post request
     pub async fn send_json_to_server<T: Serialize>( &self, endpoint: &str, msg: &T,) -> Result<String, reqwest::Error> {
         let mut request = self.http.post(format!("{}/{}", self.server_url, endpoint)).json(msg);
 
@@ -70,13 +77,17 @@ impl ChatClient {
             password: password.to_string(),
         };
 
+        // Send the register request to the server and parse response
         match self.send_json_to_server("create_user", &req).await {
             Ok(resp_str) => {
-                if let Ok(resp) = serde_json::from_str::<AuthSuccessResponse>(&resp_str) {
+                if let Ok(resp) = serde_json::from_str::<AuthSuccessResponse>(&resp_str) { 
+                    // User created successfully 
                     success(&format!("User '{}' created successfully!", resp.user_id));
                     self.auth_token = Some(resp.token);
                     return true;
+
                 } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                    // Failed to create user
                     match err {
                         ErrorResponse::AuthenticationFailed { message } => {
                             error(&format!("Error: Authentication failed: {}", message));
@@ -108,17 +119,23 @@ impl ChatClient {
             user_id: username.to_string(),
             password: password.to_string()
         };
-          self.username = Some(username.to_string());
-          return true; //for testing
+          // self.username = Some(username.to_string()); // un comment for testing 
+          //return true; // uncomment for testing 
         
+        // Send login request to server 
         match self.send_json_to_server("login", &req).await {
             Ok(resp_str) => {
                 if let Ok(resp) = serde_json::from_str::<AuthSuccessResponse>(&resp_str) {
+                    // User was successfully logged in 
                     success(&format!("Welcome {}!", resp.user_id));
+                    
+                    // Save info to chat client
                     self.auth_token = Some(resp.token);
                     self.username = Some(resp.user_id);
                     return true;
+
                 } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                    // Failed to log in 
                     match err {
                         ErrorResponse::AuthenticationFailed { message } => {
                             error(&format!("Error: Authentication failed: {}", message));
@@ -154,9 +171,12 @@ impl ChatClient {
             user_id: self.username.clone().unwrap_or_default(),
         };
 
+        // Send join request to server
         match self.send_json_to_server("join_room", &req).await {
             Ok(resp_str) => {
                 if let Ok(resp) = serde_json::from_str::<JoinRoomResponse>(&resp_str) {
+                    // Successfully joined
+                    // Save room to client
                     self.current_room = Some(resp.room_id.clone());
 
                     // Connect WebSocket
@@ -164,7 +184,7 @@ impl ChatClient {
                         return false;
                     }
 
-                    // Chat History
+                    // Print out chat history
                     if !resp.chat_history.is_empty() {
                         header("Chat History");
                         for msg in resp.chat_history {
@@ -178,6 +198,7 @@ impl ChatClient {
 
                     true
                 } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                    // Failed to join room
                     match err {
                         ErrorResponse::AuthenticationFailed { message } => {
                             error(&format!("Error: Authentication failed: {}", message));
@@ -210,6 +231,7 @@ impl ChatClient {
             room_id: room_id.to_string(),
         };
 
+        // inform server that user is leaving room
         let _ = self.send_json_to_server("leave_room", &msg).await;
 
         // Close WebSocket
@@ -218,20 +240,23 @@ impl ChatClient {
                 error(&format!("Failed to close WebSocket: {}", e));
             }
         }
+
+        // Update state in Chat Client struct
         self.ws_receiver = None;
         self.current_room = None;
 
+        // Print update to terminal
         system_message(&format!("[Left {}]", room_id));
     }
 
 
 
     pub async fn show_all_rooms(&mut self, active_room_only: bool) {
-
         let req = ListRoomsRequest {
             only_active: active_room_only,
         };
 
+        // Send request to server
         let response = match self.send_json_to_server("all_rooms", &req).await {
             Ok(resp) => resp,
             Err(e) => {
@@ -240,15 +265,17 @@ impl ChatClient {
             }
         };
 
-        header("[All Rooms]");
+        // Parse response from server response 
         let parsed: Result<ListRoomsResponse, _> = serde_json::from_str(&response);
 
+        header("[All Rooms]");
         match parsed {
             Ok(list_resp) => {
                 if list_resp.rooms.is_empty() {
                     info(" - No chat rooms exist");
                 } else {
-                    for room in list_resp.rooms { //TODO - change to user .iter
+                    // Print out all the rooms and the active user counts
+                    for room in list_resp.rooms { 
                         if active_room_only {
                             info(&format!( " - {} [{} users]", room.room_id, room.users_count));
                         }else{
@@ -262,13 +289,13 @@ impl ChatClient {
     }
     
     pub async fn create_room(&mut self, room_id: &str, password: &str){
-
       let req = CreateRoomRequest {
         room_id: room_id.to_string(),
         room_password: password.to_string(),
         user_id: self.username.clone().unwrap_or_default(),
         };
 
+        // Send response to the server 
         let response = match self.send_json_to_server("create_room", &req).await {
             Ok(resp) => resp,
             Err(e) => {
@@ -277,9 +304,12 @@ impl ChatClient {
             }
         };
 
+        // Parse response from the system 
         if let Ok(resp) = serde_json::from_str::<CreateRoomResponse>(&response) {
+            // Room succesfully created 
             success(&format!("Room Created - {}", resp.room_id));
         }else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
+            // Server could not create the room
             match err {
                 ErrorResponse::RoomAlreadyExists { room_id } => {
                     error(&format!("Error: Room '{}' already exists", room_id));
@@ -304,6 +334,7 @@ impl ChatClient {
             room_id: room_id.to_string(),
         };
 
+        // Send delete room request to the server 
         let response = match self.send_json_to_server("delete_room", &req).await {
             Ok(resp) => resp,
             Err(e) => {
@@ -312,10 +343,13 @@ impl ChatClient {
             }
         };
 
+        // Parse response from the server
         if let Ok(resp) = serde_json::from_str::<SuccessResponse>(&response) {
+            // Room deleted 
                 success(&format!("{}", resp.message));
 
         } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
+            // Room unable to be deleted
             match err {
                 ErrorResponse::RoomNotFound { room_id } => {
                     error(&format!("Error: Room '{}' does not exist", room_id));
@@ -343,6 +377,7 @@ impl ChatClient {
             user_id: username.to_string()
         };
 
+        // Send kick response to server
         let response = match self.send_json_to_server("kick_user", &req).await {
             Ok(resp) => resp,
             Err(e) => {
@@ -352,9 +387,11 @@ impl ChatClient {
         };
 
         if let Ok(_resp) = serde_json::from_str::<SuccessResponse>(&response) {
+            // User kicked successfully 
             success(&format!("User '{}' has been kicked from room", username));
 
         } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
+            // User could not be kicked
             match err {
                 ErrorResponse::AuthenticationFailed { message } => {
                     error(&format!("Error: Authentication failed: {}", message));
@@ -389,6 +426,7 @@ impl ChatClient {
             room_id: room.to_string(),
         };
 
+        // Send request to the server
         let response = match self.send_json_to_server("list_room_users", &req).await {
             Ok(resp) => resp,
             Err(e) => {
@@ -397,6 +435,7 @@ impl ChatClient {
             }
         };
 
+        // Parse response
         if let Ok(users_resp) = serde_json::from_str::<ListRoomUsersResponse>(&response) {
             header(&format!("Active Users in '{}'", room));
             if users_resp.active_users.is_empty() {
@@ -419,18 +458,23 @@ impl ChatClient {
     }
 
     pub async fn logout(&mut self){
-
+        // Confirm that user is currently logged in
         if let Some(username) = &self.username {
             let req = LogoutRequest {}; 
 
+            // Send logout request to server
             match self.send_json_to_server("logout", &req).await {
-
                 Ok(resp_str) => {
                     if let Ok(_resp) = serde_json::from_str::<SuccessResponse>(&resp_str) {
+                        // User loggout successfully
                         success(&format!("User '{}' logged out successfully", username));
+
+                        // Update client struct
                         self.username = None;
                         self.current_room = None;
+
                     } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
+                        // Unable to logout
                         match err {
                             ErrorResponse::AuthenticationFailed { message } => {
                                 error(&format!("Logout failed: {}", message));
@@ -450,13 +494,17 @@ impl ChatClient {
 
     pub async fn connect_ws_for_room(&mut self, room_id: &str) -> bool {
         let user_id = self.username.clone().unwrap_or_default();
+        
+        // Configure url for websocket to connect
         let ws_url = format!("{}/ws?user_id={}&room_id={}", self.server_url_ws, user_id, room_id);
 
+        // Get the websocket stream 
         match connect_async(&ws_url).await {
             Ok((ws_stream, _)) => {
+                // Connection successful - Update client struct
                 let (sender, receiver) = ws_stream.split();
-                self.ws_sender = Some(sender);
-                self.ws_receiver = Some(receiver);
+                self.ws_sender = Some(sender); 
+                self.ws_receiver = Some(receiver); 
                 true
             }
             Err(e) => {

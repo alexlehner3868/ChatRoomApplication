@@ -1,4 +1,5 @@
 TODO 
 - Confirm that the  erase_last_line(); in in_chat_room() doesnt erase /kick and /all_active users
 - Formatting for lists of active users and active rooms and cofnrim that it workds
+- Do I need to store token and then include that
 - Comment Code! 
