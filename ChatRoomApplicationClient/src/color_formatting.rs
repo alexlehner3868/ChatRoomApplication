@@ -35,6 +35,7 @@ use chrono::{DateTime, Local};
  *      Prints a message from the system on a change in state (eg user joined a room)
  */
 
+// Color and formatting shortcuts
 pub const RESET: &str = "\x1b[0m";
 pub const BOLD: &str = "\x1b[1m";
 pub const BRIGHT_GREEN: &str = "\x1b[92m";

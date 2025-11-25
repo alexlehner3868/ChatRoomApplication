@@ -125,6 +125,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
             continue;
         }
 
+        // Match command to input
         match args[0] {
             "/leave" => {
                 client.leave_room(&room_id).await;
