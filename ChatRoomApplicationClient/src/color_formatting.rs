@@ -35,6 +35,12 @@ use chrono::{DateTime, Local};
  *      Prints a message from the system on a change in state (eg user joined a room)
  */
 
+pub const RESET: &str = "\x1b[0m";
+pub const BOLD: &str = "\x1b[1m";
+pub const BRIGHT_GREEN: &str = "\x1b[92m";
+pub const YELLOW: &str = "\x1b[33m";
+
+
 pub fn header(text: &str) {
     println!("");
     println!("{}", format!("[{}]", text).magenta().bold());
@@ -77,3 +83,4 @@ pub fn system_prompt(text: &str) {
 pub fn system_message(message: &str){
     println!("{}", message.dimmed());
 }
+

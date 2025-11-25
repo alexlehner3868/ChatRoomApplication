@@ -109,15 +109,15 @@ impl ChatClient {
             password: password.to_string()
         };
           self.username = Some(username.to_string());
-          true
-        /*
+          return true; //for testing
+        
         match self.send_json_to_server("login", &req).await {
             Ok(resp_str) => {
                 if let Ok(resp) = serde_json::from_str::<AuthSuccessResponse>(&resp_str) {
                     success(&format!("Welcome {}!", resp.user_id));
                     self.auth_token = Some(resp.token);
                     self.username = Some(resp.user_id);
-                    true
+                    return true;
                 } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
                     match err {
                         ErrorResponse::AuthenticationFailed { message } => {
@@ -133,18 +133,18 @@ impl ChatClient {
                             error(&format!("Error: {:?}", err));
                         }
                     }
-                    false
+                    return false;
                 } else {
                     error("Unexpected server response");
-                    false
+                    return false;
                 }
             }
             Err(e) => {
                 error(&format!("Connection error: {}", e));
-                false
+                return false;
             }
         }
-            */
+            
     }
 
     pub async fn join_room(&mut self, room_id: &str, password: &str) -> bool {

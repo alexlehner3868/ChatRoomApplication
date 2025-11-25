@@ -1,42 +1,60 @@
 use std::io::{self, Write};
+use std::process::{Command, Stdio};
+use rpassword::read_password;
 
 use crate::chat_client::ChatClient;
 use crate::color_formatting::*;
 use crate::in_chat_room;
-use rpassword::read_password;
+use crate::color_formatting::{BOLD, YELLOW, BRIGHT_GREEN, RESET};
 
 pub fn print_help() {
-    println!();
-    println!("==============================");
-    println!("           HELP MENU          ");
-    println!("==============================\n");
+    let help_text = format!(r#"
+{title}=============================={reset}
+           HELP MENU          
+{title}=============================={reset}
 
-    println!("General Commands:");
-    println!("  /help              Show this help menu");
-    println!("  /quit              Quit the chat room application\n");
+{title}General Commands:{reset}
+  {b}{cmd}/help{r}              Show this help menu
+  {b}{cmd}/quit{r}              Quit the chat room application
 
-    println!("Authentication Commands:");
-    println!("  /sign_up           Create a new username and password");
-    println!("  /login             Login with your username and password");
-    println!("  /logout            Logout of the chatroom application\n");
+{title}Authentication Commands:{reset}
+  {b}{cmd}/sign_up{r}           Create a new username and password
+  {b}{cmd}/login{r}             Login with your username and password
+  {b}{cmd}/logout{r}            Logout of the chatroom application
 
-    println!("Navigation Commands:");
-    println!("  /all_rooms         Show all available chat rooms");
-    println!("  /active_rooms      Show all active chat rooms");
-    println!("  /create            Create a new chat room (usage: /create <room_id> <password>)");
-    println!("  /join              Join an existing chat room (usage: /join <room_id> <password>)");
-    println!("  /delete            Delete your chat room (owner only) (usage: /delete <room_id>)\n");
+{title}Navigation Commands:{reset}
+  {b}{cmd}/all_rooms{r}         Show all available chat rooms
+  {b}{cmd}/active_rooms{r}      Show all active chat rooms
+  {b}{cmd}/create{r}            Create a new chat room (usage: /create <room_id> <password>)
+  {b}{cmd}/join{r}              Join an existing chat room (usage: /join <room_id> <password>)
+  {b}{cmd}/delete{r}            Delete your chat room (owner only) (usage: /delete <room_id>)
 
+{title}Room Management Commands:{reset}
+  {b}{cmd}/active_users{r}      Show all active users in the current room
+  {b}{cmd}/kick{r}              Remove a user from your room (usage: /kick <username>)
+  {b}{cmd}/leave{r}             Leave the current chat room
 
-    println!("Room Management Commands:");
-    println!("  /active_users      Show all active users in the current room");
-    println!("  /kick              Remove a user from your room. Need to own chat room (usage: /kick <username>)");
-    println!("  /leave             Leave the current chat room\n");
+{title}Messaging Commands:{reset}
+  {b}{cmd}<message>{r}          Send a message to your current room
 
-    println!("Messaging Commands:");
-    println!("  <message>          Type and send a message to your current room\n");
+{title}(Press 'q' to exit help){reset}
+==============================
+"#,
+        title = BRIGHT_GREEN,
+        cmd = YELLOW,
+        b = BOLD,
+        r = RESET,
+        reset = RESET
+    );
+    let mut window  = Command::new("less").arg("-R").stdin(Stdio::piped()).spawn().expect("Failed to launch help menu");
+    
+    // Write the help menu into the window
+    if let Some(stdin) = window.stdin.as_mut() {
+        stdin.write_all(help_text.as_bytes()).unwrap();
+    }
 
-    println!("==============================");
+    // Wait for the user to exit menu
+    window.wait().unwrap();
 }
 
 pub async fn delete_room(client: &mut ChatClient, args: Vec<&str>){
