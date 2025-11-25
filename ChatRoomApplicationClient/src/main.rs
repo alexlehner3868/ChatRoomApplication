@@ -3,16 +3,16 @@ use tokio;
 use futures_util::TryStreamExt;
 
 mod color_formatting;
-mod chat_client; 
+mod chat_client;
 mod messages;
-mod terminal_erasing;
+mod utils;
 mod user_commands;
 
-use color_formatting::*;
-use terminal_erasing::*;
-use chat_client::ChatClient;
+use crate::color_formatting::*;
+use crate::utils::*;
+use crate::chat_client::ChatClient;
 use crate::messages::ServerWsMessage;
-use user_commands::*;
+use crate::user_commands::*;  
 
 
 async fn in_chat_room(client: &mut ChatClient, room_id: &str) {

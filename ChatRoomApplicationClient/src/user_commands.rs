@@ -6,6 +6,7 @@ use crate::chat_client::ChatClient;
 use crate::color_formatting::*;
 use crate::in_chat_room;
 use crate::color_formatting::{BOLD, YELLOW, BRIGHT_GREEN, RESET};
+use crate::utils::*;
 
 pub fn print_help() {
     let help_text = format!(r#"
@@ -143,7 +144,7 @@ pub async fn sign_up(client: &mut ChatClient) {
         print!("Password: ");
         io::stdout().flush().unwrap();
 
-        let input = match read_password() {
+        let input = match read_sensitive_information() {
             Ok(p) => p,
             Err(_) => {
                 error("Failed to read password");
@@ -195,7 +196,7 @@ pub async fn login(client: &mut ChatClient) -> bool {
 
     print!("Password: ");
     io::stdout().flush().unwrap();
-    let password = match read_password() {
+    let password = match read_sensitive_information() {
         Ok(pw) => pw.trim().to_string(),
         Err(_) => {
             error("Error reading password");
