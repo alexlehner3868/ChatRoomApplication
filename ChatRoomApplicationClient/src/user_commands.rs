@@ -1,15 +1,16 @@
+use rpassword::read_password;
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
-use rpassword::read_password;
 
 use crate::chat_client::ChatClient;
 use crate::color_formatting::*;
+use crate::color_formatting::{BOLD, BRIGHT_GREEN, RESET, YELLOW};
 use crate::in_chat_room;
-use crate::color_formatting::{BOLD, YELLOW, BRIGHT_GREEN, RESET};
 use crate::utils::*;
 
 pub fn print_help() {
-    let help_text = format!(r#"
+    let help_text = format!(
+        r#"
 {title}=============================={reset}
            HELP MENU          
 {title}=============================={reset}
@@ -40,10 +41,20 @@ pub fn print_help() {
 
 {title}(Press 'q' to exit help){reset}
 ==============================
-"#, title = BRIGHT_GREEN, cmd = YELLOW, b = BOLD, r = RESET, reset = RESET);
+"#,
+        title = BRIGHT_GREEN,
+        cmd = YELLOW,
+        b = BOLD,
+        r = RESET,
+        reset = RESET
+    );
 
-    let mut window  = Command::new("less").arg("-R").stdin(Stdio::piped()).spawn().expect("Failed to launch help menu");
-    
+    let mut window = Command::new("less")
+        .arg("-R")
+        .stdin(Stdio::piped())
+        .spawn()
+        .expect("Failed to launch help menu");
+
     // Write the help menu into the window
     if let Some(stdin) = window.stdin.as_mut() {
         stdin.write_all(help_text.as_bytes()).unwrap();
@@ -53,17 +64,16 @@ pub fn print_help() {
     window.wait().unwrap();
 }
 
-pub async fn delete_room(client: &mut ChatClient, args: Vec<&str>){
+pub async fn delete_room(client: &mut ChatClient, args: Vec<&str>) {
     if args.len() < 2 {
         warning("Usage: /delete <room_id>");
         return;
     }
     let room_id = args[1];
-    
+
     // Send command to server
     client.delete_room(room_id).await;
 }
-
 
 pub async fn join_room(client: &mut ChatClient, args: Vec<&str>) {
     if args.len() < 2 {
@@ -95,11 +105,10 @@ pub async fn kick_user(client: &mut ChatClient, args: Vec<&str>) {
         warning("Usage: /kick <username>");
         return;
     }
-    
+
     // Send kick request to server
     client.kick_user(args[1]).await;
 }
-
 
 pub async fn create_room(client: &mut ChatClient, args: Vec<&str>) {
     if args.len() < 2 {
@@ -126,11 +135,11 @@ pub async fn create_room(client: &mut ChatClient, args: Vec<&str>) {
     client.create_room(room_id, password.trim()).await;
 }
 
-pub async fn sign_up(client: &mut ChatClient) { 
+pub async fn sign_up(client: &mut ChatClient) {
     header("Sign Up");
     info("Please enter a username (type /quit to cancel):");
 
-    // Get username 
+    // Get username
     let username = loop {
         print!("Username: ");
         io::stdout().flush().unwrap();
@@ -142,7 +151,7 @@ pub async fn sign_up(client: &mut ChatClient) {
 
         let username = input.trim();
 
-        // Exit if /quit was given 
+        // Exit if /quit was given
         if username == "/quit" {
             warning("Sign up cancelled");
             return;
@@ -164,7 +173,7 @@ pub async fn sign_up(client: &mut ChatClient) {
     info("- At least one special character");
     info("(Type /quit to cancel)");
 
-    // Loop to get password 
+    // Loop to get password
     let password = loop {
         print!("Password: ");
         io::stdout().flush().unwrap();

@@ -1,6 +1,6 @@
+use chrono::{DateTime, Local};
 use colored::*;
 use std::io::{self, Write};
-use chrono::{DateTime, Local};
 
 /*
  * color_formatting.rs
@@ -14,7 +14,7 @@ use chrono::{DateTime, Local};
  *      Used to confirm that a comment went through
  *
  *  - error(text: &str):
- *      Used to report errors 
+ *      Used to report errors
  *
  *  - warning(text: &str):
  *      Used to draw attention to something that happenend
@@ -41,7 +41,6 @@ pub const BOLD: &str = "\x1b[1m";
 pub const BRIGHT_GREEN: &str = "\x1b[92m";
 pub const YELLOW: &str = "\x1b[33m";
 
-
 pub fn header(text: &str) {
     println!("");
     println!("{}", format!("[{}]", text).magenta().bold());
@@ -67,13 +66,25 @@ pub fn info(text: &str) {
 }
 
 pub fn user_message(timestamp: &str, username: &str, message: &str) {
-    let short_time = DateTime::parse_from_rfc3339(timestamp).map(|dt| dt.with_timezone(&Local).format("%m-%d %H:%M").to_string()).unwrap_or_else(|_| timestamp.to_string());
-    println!("[{}] {}: {}", short_time.dimmed(), username.green().bold(),message.white());
+    let short_time = DateTime::parse_from_rfc3339(timestamp)
+        .map(|dt| dt.with_timezone(&Local).format("%m-%d %H:%M").to_string())
+        .unwrap_or_else(|_| timestamp.to_string());
+    println!(
+        "[{}] {}: {}",
+        short_time.dimmed(),
+        username.green().bold(),
+        message.white()
+    );
 }
 
 pub fn my_message(message: &str) {
     let width = 80;
-    println!("{:>width$} {}", "You:".blue().bold(), message.white(),width = width);
+    println!(
+        "{:>width$} {}",
+        "You:".blue().bold(),
+        message.white(),
+        width = width
+    );
 }
 
 pub fn system_prompt(text: &str) {
@@ -81,7 +92,6 @@ pub fn system_prompt(text: &str) {
     io::stdout().flush().unwrap();
 }
 
-pub fn system_message(message: &str){
+pub fn system_message(message: &str) {
     println!("{}", message.dimmed());
 }
-
