@@ -238,11 +238,11 @@ impl ChatClient {
         let _ = self.send_json_to_server("leave_room", &msg).await;
 
         // Close WebSocket
-        if let Some(mut sender) = self.ws_sender.take() 
-            && let Err(e) = sender.close().await {
-                error(&format!("Failed to close WebSocket: {}", e));
-            }
-        
+        if let Some(mut sender) = self.ws_sender.take()
+            && let Err(e) = sender.close().await
+        {
+            error(&format!("Failed to close WebSocket: {}", e));
+        }
 
         // Update state in Chat Client struct
         self.ws_receiver = None;
@@ -269,7 +269,7 @@ impl ChatClient {
         // Parse response from server response
         let parsed: Result<ListRoomsResponse, _> = serde_json::from_str(&response);
 
-        header("[All Rooms]");
+        header("All Rooms");
         match parsed {
             Ok(list_resp) => {
                 if list_resp.rooms.is_empty() {

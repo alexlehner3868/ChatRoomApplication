@@ -30,87 +30,80 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
     // Spawn task to listen for incoming WebSocket messages
     tokio::spawn(async move {
         while let Ok(Some(msg)) = receiver.try_next().await {
-            if let Ok(text) = msg.to_text() 
-                && let Ok(parsed) = serde_json::from_str::<ServerWsMessage>(text) {
-                    match parsed {
-                        // Chat room message from another user
-                        ServerWsMessage::MessageBroadcast(chat_msg) => {
-                            if chat_msg.user_id == "system" {
-                                system_message(&format!(
-                                    "{}: {}",
-                                    chat_msg.user_id, chat_msg.content
-                                ));
-                            } else if chat_msg.user_id != username_clone.clone().unwrap_or_default()
-                            {
-                                erase_current_line();
-                                user_message(
-                                    &chat_msg.timestamp,
-                                    &chat_msg.user_id,
-                                    &chat_msg.content,
-                                );
-                                system_prompt(&format!("[{}]> ", chat_msg.room_id));
-                            }
-                        }
-                        // If current room was deleted, alert user and signal exit
-                        ServerWsMessage::RoomDeleted {
-                            room_id: deleted_room,
-                        } => {
-                            if deleted_room == current_room {
-                                warning("[Room has been deleted]");
-                                let _ = exit_tx_clone.send(true);
-                                break;
-                            }
-                        }
-                        // Notify that a new user joined the chat room
-                        ServerWsMessage::UserJoined {
-                            room_id: joined_room,
-                            user_id: joined_user,
-                        } => {
-                            if joined_room == current_room
-                                && joined_user != username_clone.clone().unwrap_or_default()
-                            {
-                                erase_current_line();
-                                system_message(&format!("[{} has joined]", joined_user));
-                                system_prompt(&format!("[{}]> ", joined_room));
-                            }
-                        }
-                        // Notify that a user left the room
-                        ServerWsMessage::UserLeft {
-                            room_id: left_room,
-                            user_id: left_user,
-                        } => {
-                            if left_room == current_room
-                                && left_user != username_clone.clone().unwrap_or_default()
-                            {
-                                erase_current_line();
-                                system_message(&format!("[{} has left]", left_user));
-                                system_prompt(&format!("[{}]> ", left_room));
-                            }
-                        }
-                        // Handle user being kicked from chat
-                        ServerWsMessage::UserKicked {
-                            room_id: kicked_room,
-                            user_id: kicked_user,
-                        } => {
-                            if kicked_room == current_room {
-                                erase_current_line();
-                                if kicked_user == username_clone.clone().unwrap_or_default() {
-                                    warning("[You have been kicked]");
-                                    let _ = exit_tx_clone.send(true);
-                                    break;
-                                } else {
-                                    system_message(&format!("[{} has been kicked]", kicked_user));
-                                    system_prompt(&format!("[{}]> ", kicked_room));
-                                }
-                            }
-                        }
-                        ServerWsMessage::Pong { .. } => {} // TBD
-                        // Display error from server
-                        ServerWsMessage::Error { error_msg } => {
-                            error(&error_msg);
+            if let Ok(text) = msg.to_text()
+                && let Ok(parsed) = serde_json::from_str::<ServerWsMessage>(text)
+            {
+                match parsed {
+                    // Chat room message from another user
+                    ServerWsMessage::MessageBroadcast(chat_msg) => {
+                        if chat_msg.user_id == "system" {
+                            system_message(&format!("{}: {}", chat_msg.user_id, chat_msg.content));
+                        } else if chat_msg.user_id != username_clone.clone().unwrap_or_default() {
+                            erase_current_line();
+                            user_message(&chat_msg.timestamp, &chat_msg.user_id, &chat_msg.content);
+                            system_prompt(&format!("[{}]> ", chat_msg.room_id));
                         }
                     }
+                    // If current room was deleted, alert user and signal exit
+                    ServerWsMessage::RoomDeleted {
+                        room_id: deleted_room,
+                    } => {
+                        if deleted_room == current_room {
+                            warning("[Room has been deleted]");
+                            let _ = exit_tx_clone.send(true);
+                            break;
+                        }
+                    }
+                    // Notify that a new user joined the chat room
+                    ServerWsMessage::UserJoined {
+                        room_id: joined_room,
+                        user_id: joined_user,
+                    } => {
+                        if joined_room == current_room
+                            && joined_user != username_clone.clone().unwrap_or_default()
+                        {
+                            erase_current_line();
+                            system_message(&format!("[{} has joined]", joined_user));
+                            system_prompt(&format!("[{}]> ", joined_room));
+                        }
+                    }
+                    // Notify that a user left the room
+                    ServerWsMessage::UserLeft {
+                        room_id: left_room,
+                        user_id: left_user,
+                    } => {
+                        if left_room == current_room
+                            && left_user != username_clone.clone().unwrap_or_default()
+                        {
+                            erase_current_line();
+                            system_message(&format!("[{} has left]", left_user));
+                            system_prompt(&format!("[{}]> ", left_room));
+                        }
+                    }
+                    // Handle user being kicked from chat
+                    ServerWsMessage::UserKicked {
+                        room_id: kicked_room,
+                        user_id: kicked_user,
+                    } => {
+                        if kicked_room == current_room {
+                            erase_current_line();
+                            if kicked_user == username_clone.clone().unwrap_or_default() {
+                                warning("[You have been kicked]");
+                                let _ = exit_tx_clone.send(true);
+                                break;
+                            } else {
+                                system_message(&format!("[{} has been kicked]", kicked_user));
+                                system_prompt(&format!("[{}]> ", kicked_room));
+                            }
+                        }
+                    }
+                    ServerWsMessage::Pong { .. } => {} // TBD
+                    // Display error from server
+                    ServerWsMessage::Error { error_msg } => {
+                        error(&error_msg);
+                    }
                 }
+            }
         }
     });
 
