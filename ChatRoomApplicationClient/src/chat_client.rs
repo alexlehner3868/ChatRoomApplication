@@ -136,7 +136,7 @@ impl ChatClient {
                     // Save info to chat client
                     self.auth_token = Some(resp.token);
                     self.username = Some(resp.user_id);
-                    return true;
+                    true
                 } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_str) {
                     // Failed to log in
                     match err {
@@ -154,15 +154,15 @@ impl ChatClient {
                             error(&format!("Error: {:?}", err));
                         }
                     }
-                    return false;
+                    false
                 } else {
                     error("Unexpected server response");
-                    return false;
+                    false
                 }
             }
             Err(e) => {
                 error(&format!("Connection error: {}", e));
-                return false;
+                false
             }
         }
     }
@@ -238,11 +238,11 @@ impl ChatClient {
         let _ = self.send_json_to_server("leave_room", &msg).await;
 
         // Close WebSocket
-        if let Some(mut sender) = self.ws_sender.take() {
-            if let Err(e) = sender.close().await {
+        if let Some(mut sender) = self.ws_sender.take() 
+            && let Err(e) = sender.close().await {
                 error(&format!("Failed to close WebSocket: {}", e));
             }
-        }
+        
 
         // Update state in Chat Client struct
         self.ws_receiver = None;
@@ -347,7 +347,7 @@ impl ChatClient {
         // Parse response from the server
         if let Ok(resp) = serde_json::from_str::<SuccessResponse>(&response) {
             // Room deleted
-            success(&format!("{}", resp.message));
+            success(&resp.message.to_string());
         } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
             // Room unable to be deleted
             match err {

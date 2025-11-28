@@ -1,6 +1,5 @@
 use futures_util::TryStreamExt;
 use std::io::{self, Write};
-use tokio;
 
 mod chat_client;
 mod color_formatting;
@@ -31,8 +30,8 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
     // Spawn task to listen for incoming WebSocket messages
     tokio::spawn(async move {
         while let Ok(Some(msg)) = receiver.try_next().await {
-            if let Ok(text) = msg.to_text() {
-                if let Ok(parsed) = serde_json::from_str::<ServerWsMessage>(text) {
+            if let Ok(text) = msg.to_text() 
+                && let Ok(parsed) = serde_json::from_str::<ServerWsMessage>(text) {
                     match parsed {
                         // Chat room message from another user
                         ServerWsMessage::MessageBroadcast(chat_msg) => {
@@ -112,7 +111,6 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                         }
                     }
                 }
-            }
         }
     });
 
@@ -150,7 +148,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
         // Match command to input
         match args[0] {
             "/leave" => {
-                client.leave_room(&room_id).await;
+                client.leave_room(room_id).await;
                 success("[Returned to Lobby]");
                 break;
             }

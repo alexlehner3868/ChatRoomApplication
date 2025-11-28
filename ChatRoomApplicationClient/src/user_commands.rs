@@ -1,4 +1,3 @@
-use rpassword::read_password;
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
 
@@ -166,8 +165,7 @@ pub async fn sign_up(client: &mut ChatClient) {
         break username.to_string();
     };
 
-    println!("");
-    info("Please enter a password that meets the criteria:");
+    info("\nPlease enter a password that meets the criteria:");
     info("- Minimum 8 characters");
     info("- At least one uppercase letter");
     info("- At least one special character");
@@ -247,9 +245,5 @@ pub async fn login(client: &mut ChatClient) -> bool {
     }
 
     // Try to establish connection with server for user
-    if client.login(username, &password).await {
-        true
-    } else {
-        false
-    }
+    client.login(username, &password).await
 }

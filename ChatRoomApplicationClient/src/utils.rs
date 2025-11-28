@@ -1,5 +1,4 @@
 use crossterm::{
-    cursor,
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };

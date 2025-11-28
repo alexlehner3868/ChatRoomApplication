@@ -42,23 +42,19 @@ pub const BRIGHT_GREEN: &str = "\x1b[92m";
 pub const YELLOW: &str = "\x1b[33m";
 
 pub fn header(text: &str) {
-    println!("");
-    println!("{}", format!("[{}]", text).magenta().bold());
+    println!("\n{}", format!("[{}]", text).magenta().bold());
 }
 
 pub fn success(text: &str) {
-    println!("{}", format!("[{}]", text).green());
-    println!("");
+    println!("{}", format!("[{}]\n", text).green());
 }
 
 pub fn error(text: &str) {
-    println!("{}", format!("[{}]", text).red());
-    println!("");
+    println!("{}", format!("[{}]\n", text).red());
 }
 
 pub fn warning(text: &str) {
-    println!("{}", format!("[{}]", text).yellow());
-    println!("");
+    println!("{}", format!("[{}]\n", text).yellow());
 }
 
 pub fn info(text: &str) {
