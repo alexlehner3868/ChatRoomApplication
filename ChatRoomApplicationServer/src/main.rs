@@ -3,7 +3,7 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         Query, State,
     },
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
@@ -29,7 +29,7 @@ mod routes;
 mod state;
 
 use crate::db::init_db_from_env;
-use crate::routes::auth::{login_handler, register_handler};
+use crate::routes::auth::{login_handler, register_handler, authenticate_request};
 use sqlx::PgPool;
 
 use dotenvy::dotenv;
@@ -158,7 +158,7 @@ async fn logout_handler(
     // clean up user from whatever room they are in
     let room_id = {
         let mut user_rooms = state.user_rooms.lock().await;
-        user_rooms.remove(&user_id);
+        user_rooms.remove(&user_id)
     };
 
     match room_id{
@@ -185,6 +185,7 @@ async fn logout_handler(
     (StatusCode::CREATED, Json(response)).into_response()
 }
 
+#[derive(Deserialize, Debug)]
 struct CreateRoomRequestDemo {
     room_id: String,
     room_password: String,
