@@ -146,7 +146,7 @@ async fn logout_handler(
     let user_id = match authenticate_request(&headers).await{
         Ok(id) =>  id,
         Err(e) => {
-            tracing::warn!("Authentication failed for logout: {}", e);
+            tracing::warn!("Authentication failed for logout: {:?}", e);
             let response = ErrorResponse::AuthenticationFailed {
                 message: String::from("Authentication invalid for logging out"),
             };
