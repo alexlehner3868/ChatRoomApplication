@@ -5,8 +5,9 @@ use argon2::password_hash::{PasswordHash, SaltString};
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use axum::response::IntoResponse;
 use axum::{extract::State, http::StatusCode, Json};
+use axum::http::HeaderMap;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header}; //{ decode, DecodingKey, Validation};
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header, decode, DecodingKey, Validation};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -156,4 +157,53 @@ pub async fn login_handler(
             (StatusCode::INTERNAL_SERVER_ERROR, Json(err)).into_response()
         }
     }
+}
+
+/// Extracts and validates JWT from the "Authorization: Bearer <token>" header.
+/// Returns Ok(user_id) if valid, otherwise Err(ErrorResponse)
+pub async fn authenticate_request(headers: &HeaderMap) -> Result<String, ErrorResponse> {
+    // Get Authorization header
+    let auth_header = match headers.get("Authorization") {
+        Some(h) => h.to_str().unwrap_or(""),
+        None => {
+            return Err(ErrorResponse::AuthenticationFailed {
+                message: "Missing Authorization header".into(),
+            });
+        }
+    };
+
+    // Expected format: "Bearer <token>"
+    if !auth_header.starts_with("Bearer ") {
+        return Err(ErrorResponse::AuthenticationFailed {
+            message: "Invalid Authorization header format".into(),
+        });
+    }
+
+    let token = &auth_header[7..]; // strip "Bearer "
+
+    // Load secret
+    let secret = match std::env::var("JWT_SECRET") {
+        Ok(s) => s,
+        Err(_) => {
+            return Err(ErrorResponse::ServerError {
+                message: "Server missing JWT_SECRET".into(),
+            });
+        }
+    };
+
+    // Decode and validate token
+    let token_data = match decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    ) {
+        Ok(data) => data,
+        Err(_) => {
+            return Err(ErrorResponse::AuthenticationFailed {
+                message: "Invalid or expired token".into(),
+            });
+        }
+    };
+    // Return user_id from the token's subject (sub)
+    Ok(token_data.claims.sub)
 }
