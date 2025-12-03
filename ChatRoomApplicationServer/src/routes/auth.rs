@@ -1,5 +1,6 @@
 use crate::db::DbPool;
-use crate::message::{AuthSuccessResponse, LoginRequest, RegisterRequest, ErrorResponse};
+use crate::message::{AuthSuccessResponse, ErrorResponse, LoginRequest, RegisterRequest};
+use crate::AppState;
 use argon2::password_hash::{PasswordHash, SaltString};
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use axum::response::IntoResponse;
@@ -9,8 +10,8 @@ use jsonwebtoken::{encode, Algorithm, EncodingKey, Header}; //{ decode, Decoding
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::sync::Arc;
 use thiserror::Error;
-use crate::state::GlobalState;
 
 #[derive(Error, Debug)]
 pub enum AuthError {
@@ -112,16 +113,14 @@ pub async fn login(db: &DbPool, req: LoginRequest) -> Result<AuthSuccessResponse
 }
 
 pub async fn register_handler(
-    State(state): State<GlobalState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
 ) -> impl axum::response::IntoResponse {
     let user_id = req.user_id.clone();
     match register(&state.db_pool, req).await {
         Ok(response) => (StatusCode::OK, Json(response)).into_response(),
         Err(AuthError::BadRequest(msg)) if msg.contains("already exists") => {
-            let err = ErrorResponse::UserAlreadyExists {
-                user_id: user_id,
-            };
+            let err = ErrorResponse::UserAlreadyExists { user_id };
             (StatusCode::BAD_REQUEST, Json(err)).into_response()
         }
         Err(e) => {
@@ -134,7 +133,7 @@ pub async fn register_handler(
 }
 
 pub async fn login_handler(
-    State(state): State<GlobalState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<LoginRequest>,
 ) -> impl axum::response::IntoResponse {
     let user_id = req.user_id.clone();
@@ -147,9 +146,7 @@ pub async fn login_handler(
             (StatusCode::UNAUTHORIZED, Json(err)).into_response()
         }
         Err(AuthError::BadRequest(msg)) if msg.contains("does not exist") => {
-            let err = ErrorResponse::UserNotFound {
-                user_id: user_id,
-            };
+            let err = ErrorResponse::UserNotFound { user_id };
             (StatusCode::UNAUTHORIZED, Json(err)).into_response()
         }
         Err(e) => {
