@@ -230,27 +230,42 @@ impl ChatClient {
     }
 
     pub async fn leave_room(&mut self, room_id: &str) {
-        let msg = ClientWsMessage::LeaveRoom {
+        let req = ClientWsMessage::LeaveRoom {
             room_id: room_id.to_string(),
         };
 
-        // inform server that user is leaving room
-        let _ = self.send_json_to_server("leave_room", &msg).await;
+        // Convert to JSON
+        let serialized = match serde_json::to_string(&req) {
+            Ok(s) => s,
+            Err(e) => {
+                error(&format!("Failed to serialize LeaveRoom request: {}", e));
+                return;
+            }
+        };
 
-        // Close WebSocket
-        if let Some(mut sender) = self.ws_sender.take()
-            && let Err(e) = sender.close().await
-        {
-            error(&format!("Failed to close WebSocket: {}", e));
+        // Send request to server via websocket
+        if let Some(sender) = &mut self.ws_sender {
+            if let Err(e) = sender.send(Message::Text(serialized.into())).await {
+                error(&format!("Error: Failed to send LeaveRoom WS message: {}", e));
+            }
+        } else {
+            error("Error: No WebSocket connection to send LeaveRoom request");
         }
 
-        // Update state in Chat Client struct
+        // Close WS
+        if let Some(mut sender) = self.ws_sender.take() {
+            if let Err(e) = sender.close().await {
+                error(&format!("Failed to close WebSocket: {}", e));
+            }
+        }
+
+        // Update client state
         self.ws_receiver = None;
         self.current_room = None;
 
-        // Print update to terminal
         system_message(&format!("[Left {}]", room_id));
     }
+
 
     pub async fn show_all_rooms(&mut self, active_room_only: bool) {
         let req = ListRoomsRequest {
