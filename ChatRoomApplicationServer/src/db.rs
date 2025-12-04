@@ -97,19 +97,6 @@ pub async fn get_room_by_room_id(pool: &DbPool, room_id: &str) -> Result<DbRoom,
 
     Ok(room)
 }
-pub async fn verify_room_password(
-    stored_hash: &str,
-    provided_password: &str,
-) -> Result<bool, argon2::password_hash::Error> {
-    use argon2::PasswordVerifier;
-
-    let parsed_hash = argon2::PasswordHash::new(stored_hash)?;
-    let argon2 = Argon2::default();
-
-    Ok(argon2
-        .verify_password(provided_password.as_bytes(), &parsed_hash)
-        .is_ok())
-}
 
 pub async fn add_user_to_room(
     pool: &DbPool,

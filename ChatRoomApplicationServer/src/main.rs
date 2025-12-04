@@ -1,3 +1,5 @@
+use argon2::password_hash::PasswordHash;
+use argon2::{Argon2, PasswordVerifier};
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -26,7 +28,6 @@ use message::{
 mod db;
 mod models;
 mod routes;
-mod state;
 
 use crate::db::init_db_from_env;
 use crate::routes::auth::{authenticate_request, login_handler, register_handler};
@@ -196,6 +197,7 @@ async fn create_room_handler(
     Json(req): Json<CreateRoomRequest>,
 ) -> impl IntoResponse {
     tracing::info!("Create room request: {:?}", req);
+    let db_pool = &state.db_pool;
     // authenticate jwt and get user_id
     let user_id = match authenticate_request(&headers).await {
         Ok(id) => id,
@@ -212,6 +214,24 @@ async fn create_room_handler(
     // TODO: Mahmoud Validate room_id and password and if they are good add them to database (make sure to hash password)
     // if it fails then use match to send the appropriate error response to caller
     // please change the instance below to go from  room_password: req.room_password.clone() to using the hashed passowrd
+    // Convert username → UUID
+    let db_user = match db::get_user_by_user_id(db_pool, &user_id).await {
+        Ok(u) => u,
+        Err(_) => {
+            let err = ErrorResponse::UserNotFound { user_id };
+            return (StatusCode::NOT_FOUND, Json(err)).into_response();
+        }
+    };
+    match db::create_room(db_pool, &req.room_id, &req.room_password, db_user.id).await {
+        Ok(room) => room,
+        Err(e) => {
+            tracing::error!("Failed to insert room: {}", e);
+            let err = ErrorResponse::ServerError {
+                message: "Database error while creating room".into(),
+            };
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(err)).into_response();
+        }
+    };
 
     // get the locks
     let mut rooms = state.rooms.lock().await;
@@ -266,7 +286,9 @@ async fn join_room_handler(
     Json(req): Json<JoinRoomRequest>,
 ) -> impl IntoResponse {
     tracing::info!("Join room request: {:?}", req);
-    // authenticate jwt and get user_id
+
+    let db_pool = &state.db_pool;
+    // 1. Authenticate jwt and get user_id
     let user_id = match authenticate_request(&headers).await {
         Ok(id) => id,
         Err(e) => {
@@ -274,7 +296,6 @@ async fn join_room_handler(
             let response = ErrorResponse::AuthenticationFailed {
                 message: String::from("Authentication invalid for joining room"),
             };
-
             return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
         }
     };
@@ -282,15 +303,68 @@ async fn join_room_handler(
     // TO DO: Mahmoud verify hashed room_password against the password from the request password
     // if room doesnt exist in database or verififcation fails return the the appropraite ErrorResponse and return to caller
     // Load chat history from database and add user to room in database
+    // 2. Get DB user
+    let db_user = match db::get_user_by_user_id(db_pool, &user_id).await {
+        Ok(u) => u,
+        Err(_) => {
+            let err = ErrorResponse::UserNotFound { user_id };
+            return (StatusCode::NOT_FOUND, Json(err)).into_response();
+        }
+    };
 
-    // if room.room_password != req.room_password {
-    //     let error = ErrorResponse::InvalidPassword {
-    //         message: "Incorrect room password".to_string(),
-    //     };
-    //     return (StatusCode::UNAUTHORIZED, Json(error)).into_response();
-    // }
-    let chat_history = Vec::new(); // Temporary Empty for now
+    // 3. Get DB room
+    let db_room = match db::get_room_by_room_id(db_pool, &req.room_id).await {
+        Ok(r) => r,
+        Err(_) => {
+            let err = ErrorResponse::RoomNotFound {
+                room_id: req.room_id.clone(),
+            };
+            return (StatusCode::NOT_FOUND, Json(err)).into_response();
+        }
+    };
+    // 4. Verify password
+    let parsed_hash = PasswordHash::new(&db_room.room_password_hash)
+        .map_err(|_| ErrorResponse::ServerError {
+            message: "Stored password hash invalid".into(),
+        })
+        .unwrap();
 
+    if Argon2::default()
+        .verify_password(req.room_password.as_bytes(), &parsed_hash)
+        .is_err()
+    {
+        let err = ErrorResponse::InvalidPassword {
+            message: "Incorrect room password".into(),
+        };
+        return (StatusCode::UNAUTHORIZED, Json(err)).into_response();
+    }
+
+    // 5. Load chat history from DB
+    let chat_history = match db::get_messages_for_room(db_pool, db_room.id, 200).await {
+        Ok(msgs) => msgs,
+        Err(e) => {
+            tracing::error!("Failed loading messages: {:?}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::ServerError {
+                    message: "Failed to load chat history".into(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // 6. Add entry to DB room_membership table
+    if let Err(e) = db::add_user_to_room(db_pool, db_room.id, db_user.id).await {
+        tracing::error!("Failed saving room membership: {:?}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::ServerError {
+                message: "Failed to save room membership".into(),
+            }),
+        )
+            .into_response();
+    }
     // get the lock
     let mut user_rooms = state.user_rooms.lock().await;
 
@@ -399,7 +473,7 @@ async fn delete_room_handler(
 
     tracing::info!("Room {} Deleted", &req.room_id);
 
-    // TODO: Mahmoud database data deletion idk if you wana have a sepertae function in another file to do this
+    // TODO: database data deletion
 
     // send success message
     let response = SuccessResponse {
