@@ -88,7 +88,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                         if kicked_room == current_room {
                             erase_current_line();
                             if kicked_user == username_clone.clone().unwrap_or_default() {
-                                warning("[You have been kicked]");
+                                warning("You have been kicked");
                                 let _ = exit_tx_clone.send(true);
                                 break;
                             } else {

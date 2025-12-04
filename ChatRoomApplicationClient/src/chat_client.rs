@@ -387,56 +387,36 @@ impl ChatClient {
     }
 
     pub async fn kick_user(&mut self, username: &str) {
-        let current_room = self
-            .current_room
-            .clone()
-            .unwrap_or_else(|| "unknown_room".to_string());
-        let req = ClientWsMessage::KickUser {
-            room_id: current_room.clone(),
-            user_id: username.to_string(),
-        };
-
-        // Send kick response to server
-        let response = match self.send_json_to_server("kick_user", &req).await {
-            Ok(resp) => resp,
-            Err(e) => {
-                error(&format!("Connection error: {}", e));
+        let room_id = match &self.current_room {
+            Some(id) => id.clone(),
+            None => {
+                error("You are not in a room");
                 return;
             }
         };
 
-        if let Ok(_resp) = serde_json::from_str::<SuccessResponse>(&response) {
-            // User kicked successfully
-            success(&format!("User '{}' has been kicked from room", username));
-        } else if let Ok(err) = serde_json::from_str::<ErrorResponse>(&response) {
-            // User could not be kicked
-            match err {
-                ErrorResponse::AuthenticationFailed { message } => {
-                    error(&format!("Error: Authentication failed: {}", message));
-                }
-                ErrorResponse::NotInRoom { room_id } => {
-                    error(&format!(
-                        "Error: User '{}' not in room {}",
-                        username, room_id
-                    ));
-                }
-                ErrorResponse::ServerError { message } => {
-                    error(&format!("Error: Server error: {}", message));
-                }
-                ErrorResponse::InvalidPermissions { .. } => {
-                    error(&format!(
-                        "Error: You dont own room {}; cannot kick {}",
-                        current_room, username
-                    ));
-                }
-                _ => {
-                    error(&format!("Error: {:?}", err));
-                }
+        // Build WS message
+        let msg = ClientWsMessage::KickUser {
+            room_id: room_id.clone(),
+            user_id: username.to_string(),
+        };
+
+        let serialized = serde_json::to_string(&msg).unwrap();
+
+        // Send through WebSocket
+        if let Some(sender) = &mut self.ws_sender {
+            if let Err(e) = sender.send(Message::Text(serialized.into())).await {
+                error(&format!("Failed to send kick message: {}", e));
+                return;
             }
         } else {
-            error(&format!("Unexpected server response: {}", response));
+            error("WebSocket not connected");
+            return;
         }
+
+        success(&format!("Kick request sent for '{}'", username));
     }
+
 
     pub async fn get_active_users(&mut self) {
         let room = match &self.current_room {
