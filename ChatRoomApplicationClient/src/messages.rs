@@ -48,7 +48,6 @@ pub struct CreateRoomRequest {
 pub struct JoinRoomRequest {
     pub room_id: String,
     pub room_password: String,
-    pub user_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

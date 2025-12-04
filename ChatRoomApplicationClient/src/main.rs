@@ -142,7 +142,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
         match args[0] {
             "/leave" => {
                 client.leave_room(room_id).await;
-                success("[Returned to Lobby]");
+                success("Returned to Lobby");
                 break;
             }
             "/help" => print_help(),

@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde::Serialize;
 use tokio::net::TcpStream;
 use tokio_tungstenite::MaybeTlsStream;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::{WebSocketStream, connect_async, tungstenite::Message};
 
 use crate::color_formatting::*;
@@ -171,7 +172,6 @@ impl ChatClient {
         let req = JoinRoomRequest {
             room_id: room_id.to_string(),
             room_password: password.to_string(),
-            user_id: self.username.clone().unwrap_or_default(),
         };
 
         // Send join request to server
@@ -246,7 +246,10 @@ impl ChatClient {
         // Send request to server via websocket
         if let Some(sender) = &mut self.ws_sender {
             if let Err(e) = sender.send(Message::Text(serialized.into())).await {
-                error(&format!("Error: Failed to send LeaveRoom WS message: {}", e));
+                error(&format!(
+                    "Error: Failed to send LeaveRoom WS message: {}",
+                    e
+                ));
             }
         } else {
             error("Error: No WebSocket connection to send LeaveRoom request");
@@ -265,7 +268,6 @@ impl ChatClient {
 
         system_message(&format!("[Left {}]", room_id));
     }
-
 
     pub async fn show_all_rooms(&mut self, active_room_only: bool) {
         let req = ListRoomsRequest {
@@ -514,16 +516,34 @@ impl ChatClient {
     pub async fn connect_ws_for_room(&mut self, room_id: &str) -> bool {
         let user_id = self.username.clone().unwrap_or_default();
 
-        // Configure url for websocket to connect
-        let ws_url = format!(
-            "{}/ws?user_id={}&room_id={}",
-            self.server_url_ws, user_id, room_id
+        let ws_url = format!("{}/ws", self.server_url_ws);
+
+        // Copy token
+        let token = match &self.auth_token {
+            Some(t) => t.clone(),
+            None => {
+                error("No auth token available — cannot open websocket.");
+                return false;
+            }
+        };
+
+        let mut request = match ws_url.into_client_request() {
+            Ok(r) => r,
+            Err(e) => {
+                error(&format!("Invalid WS URL: {}", e));
+                return false;
+            }
+        };
+
+        // Attach JWT token into header
+        request.headers_mut().insert(
+            "Authorization",
+            format!("Bearer {}", token).parse().unwrap(),
         );
 
-        // Get the websocket stream
-        match connect_async(&ws_url).await {
+        // Connect to Websocket
+        match connect_async(request).await {
             Ok((ws_stream, _)) => {
-                // Connection successful - Update client struct
                 let (sender, receiver) = ws_stream.split();
                 self.ws_sender = Some(sender);
                 self.ws_receiver = Some(receiver);
