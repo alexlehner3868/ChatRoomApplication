@@ -149,3 +149,36 @@ pub async fn get_messages_for_room(
 
     Ok(msgs)
 }
+
+pub async fn delete_room_by_room_id(pool: &DbPool, room_id: &str) -> Result<(), sqlx::Error> {
+    // get room to get its UUID primary key
+    let room = sqlx::query!(
+        r#"
+        SELECT id
+        FROM rooms
+        WHERE room_id = $1
+        "#,
+        room_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(room) = room else {
+        // If room not found
+        return Err(sqlx::Error::RowNotFound);
+    };
+
+    // Delete the room by UUID
+    // CASCADE removes memberships + messages automatically
+    sqlx::query!(
+        r#"
+        DELETE FROM rooms
+        WHERE id = $1
+        "#,
+        room.id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}

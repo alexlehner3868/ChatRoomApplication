@@ -408,6 +408,25 @@ async fn delete_room_handler(
         }
     };
 
+    // delete room from the database
+    match db::delete_room_by_room_id(&state.db_pool, &req.room_id).await {
+        Ok(_) => tracing::info!("Deleted room {} from DB", &req.room_id),
+        Err(sqlx::Error::RowNotFound) => {
+            tracing::warn!("Room {} not found in DB", &req.room_id);
+            let response = ErrorResponse::RoomNotFound {
+                room_id: req.room_id.clone(),
+            };
+            return (StatusCode::NOT_FOUND, Json(response)).into_response();
+        }
+        Err(e) => {
+            tracing::error!("DB error deleting room {}: {:?}", &req.room_id, e);
+            let response = ErrorResponse::ServerError {
+                message: "Database error deleting room".into(),
+            };
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response)).into_response();
+        }
+    }
+
     // get the owner of the room
     let room_owner = {
         let rooms = state.rooms.lock().await;
@@ -472,8 +491,6 @@ async fn delete_room_handler(
     }
 
     tracing::info!("Room {} Deleted", &req.room_id);
-
-    // TODO: database data deletion
 
     // send success message
     let response = SuccessResponse {
