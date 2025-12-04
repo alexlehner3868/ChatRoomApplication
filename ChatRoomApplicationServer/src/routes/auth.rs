@@ -3,11 +3,11 @@ use crate::message::{AuthSuccessResponse, ErrorResponse, LoginRequest, RegisterR
 use crate::AppState;
 use argon2::password_hash::{PasswordHash, SaltString};
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::{extract::State, http::StatusCode, Json};
-use axum::http::HeaderMap;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header, decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::env;

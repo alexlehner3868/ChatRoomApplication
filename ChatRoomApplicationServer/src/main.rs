@@ -1,15 +1,14 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Query, State,
+        State,
     },
-    http::{StatusCode, HeaderMap},
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};
-use serde::Deserialize;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -19,8 +18,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod message;
 use message::{
-    ChatMessage, ClientWsMessage, CreateRoomResponse, ErrorResponse, JoinRoomResponse,
-    ServerWsMessage, LogoutRequest, SuccessResponse,
+    ChatMessage, ClientWsMessage, CreateRoomRequest, CreateRoomResponse, DeleteRoomRequest,
+    ErrorResponse, JoinRoomRequest, JoinRoomResponse, ListRoomUsersRequest, ListRoomUsersResponse,
+    ListRoomsRequest, ListRoomsResponse, LogoutRequest, RoomInfo, ServerWsMessage, SuccessResponse,
 };
 
 mod db;
@@ -29,7 +29,7 @@ mod routes;
 mod state;
 
 use crate::db::init_db_from_env;
-use crate::routes::auth::{login_handler, register_handler, authenticate_request};
+use crate::routes::auth::{authenticate_request, login_handler, register_handler};
 use sqlx::PgPool;
 
 use dotenvy::dotenv;
@@ -87,14 +87,10 @@ async fn main() {
         .route("/logout", post(logout_handler))
         .route("/create_room", post(create_room_handler))
         .route("/join_room", post(join_room_handler))
+        .route("/delete_room", post(delete_room_handler))
+        .route("/all_rooms", post(list_all_rooms_handler))
+        .route("/list_room_users", post(list_room_active_users_handler))
         .route("/ws", get(websocket_handler))
-        /*
-        TODO: IMPLEMENT ROUTES
-                .route("/leave_room", post(leave_room_handler))
-                .route("/delete_room", post(delete_room_handler))
-                .route("/all_rooms", post(list_all_rooms_handler))
-                .route("/list_room_users", post(list_room_users_handler))
-                 */
         .with_state(state);
 
     // listen for any requests
@@ -139,19 +135,19 @@ Returns:
 async fn logout_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(req): Json<LogoutRequest>,
+    Json(_req): Json<LogoutRequest>,
 ) -> impl IntoResponse {
     tracing::info!("Logout request received");
     // authenticate jwt and get user_id
-    let user_id = match authenticate_request(&headers).await{
-        Ok(id) =>  id,
+    let user_id = match authenticate_request(&headers).await {
+        Ok(id) => id,
         Err(e) => {
             tracing::warn!("Authentication failed for logout: {:?}", e);
             let response = ErrorResponse::AuthenticationFailed {
                 message: String::from("Authentication invalid for logging out"),
             };
 
-             return (StatusCode::UNAUTHORIZED, Json(response)).into_response()
+            return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
         }
     };
 
@@ -161,17 +157,16 @@ async fn logout_handler(
         user_rooms.remove(&user_id)
     };
 
-    match room_id{
+    match room_id {
         Some(id) => {
             let mut rooms = state.rooms.lock().await;
-            match rooms.get_mut(&id){
+            match rooms.get_mut(&id) {
                 Some(room) => {
                     room.members.remove(&user_id);
                 }
                 None => tracing::info!("{} room was already gone at logout", id),
             }
-
-        },
+        }
         None => tracing::info!("{} was not in a room at logout", user_id),
     }
 
@@ -185,31 +180,42 @@ async fn logout_handler(
     (StatusCode::CREATED, Json(response)).into_response()
 }
 
-#[derive(Deserialize, Debug)]
-struct CreateRoomRequestDemo {
-    room_id: String,
-    room_password: String,
-    user_id: String, // TEMPORARY: Remove when JWT auth is implemented
-}
-
 /*
 Brief Explanation: creates a new room from request body.
 
 Parameters:
     state: Arc<AppState> - the shared app state that contains the pool Hashmaps for the rooms
+    headers: HeaderMap - the header containng the jwt
     req: Json<CreateRoomRequestDemo> - deseralize the json request body into CreateRoomRequestDemo
 Returns:
     Response - seralized response stating success or failure
 */
 async fn create_room_handler(
     State(state): State<Arc<AppState>>,
-    Json(req): Json<CreateRoomRequestDemo>,
+    headers: HeaderMap,
+    Json(req): Json<CreateRoomRequest>,
 ) -> impl IntoResponse {
     tracing::info!("Create room request: {:?}", req);
+    // authenticate jwt and get user_id
+    let user_id = match authenticate_request(&headers).await {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::warn!("Authentication failed for creating room: {:?}", e);
+            let response = ErrorResponse::AuthenticationFailed {
+                message: String::from("Authentication invalid for creating room"),
+            };
+
+            return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
+        }
+    };
+
+    // TODO: Mahmoud Validate room_id and password and if they are good add them to database (make sure to hash password)
+    // if it fails then use match to send the appropriate error response to caller
+    // please change the instance below to go from  room_password: req.room_password.clone() to using the hashed passowrd
+
     // get the locks
     let mut rooms = state.rooms.lock().await;
     let mut room_channels = state.room_channels.lock().await;
-    let mut user_rooms = state.user_rooms.lock().await;
 
     // Check if room already exists
     if rooms.contains_key(&req.room_id) {
@@ -219,14 +225,11 @@ async fn create_room_handler(
         return (StatusCode::CONFLICT, Json(error)).into_response();
     }
 
-    // TODO: Validate room_id format and password policy
-    // TODO: Extract user_id from JWT token in Authorization header (remove user_id from body)
-
     // Create room
     let room = Room {
         room_id: req.room_id.clone(),
         room_password: req.room_password.clone(),
-        owner: req.user_id.clone(),
+        owner: user_id.clone(),
         members: HashSet::new(),
     };
 
@@ -238,10 +241,7 @@ async fn create_room_handler(
     // set the transmitter for the room
     room_channels.insert(req.room_id.clone(), tx);
 
-    // set the creator of the room
-    user_rooms.insert(req.user_id.clone(), req.room_id.clone());
-
-    // TODO: Save room to database
+    // send successful response
     let response = CreateRoomResponse {
         room_id: req.room_id,
         created_at: chrono::Utc::now().to_rfc3339(),
@@ -250,63 +250,52 @@ async fn create_room_handler(
     (StatusCode::CREATED, Json(response)).into_response()
 }
 
-// TEMPORARY: For demo purposes, we'll accept user_id in the request body
-// In production, this should be extracted from JWT token
-#[derive(Deserialize, Debug)]
-struct JoinRoomRequestDemo {
-    room_id: String,
-    room_password: String,
-    user_id: String, // TEMPORARY: Remove when JWT auth is implemented
-}
-
 /*
-Brief Explanation: Joins a room based on request body info.
+Brief Explanation: Joins a room based on request body info, it essentially is just verifying the user can join and get previous history. A seperate request should be made to upgrade to websocket.
 
 Parameters:
     state: Arc<AppState> - the shared app state that contains the pool Hashmaps for the rooms
-    req: Json<JoinRoomRequestDemo> - deseralize the json request body into JoinRoomRequestDemo
+    headers: HeaderMap - the header containng the jwt
+    req: Json<JoinRoomRequest> - deseralize the json request body into JoinRoomRequest
 Returns:
     Response - seralized response stating success or failure
 */
 async fn join_room_handler(
     State(state): State<Arc<AppState>>,
-    Json(req): Json<JoinRoomRequestDemo>,
+    headers: HeaderMap,
+    Json(req): Json<JoinRoomRequest>,
 ) -> impl IntoResponse {
     tracing::info!("Join room request: {:?}", req);
-
-    // get the locks
-    let mut rooms = state.rooms.lock().await;
-    let mut user_rooms = state.user_rooms.lock().await;
-
-    // Check if room exists
-    let room = match rooms.get_mut(&req.room_id) {
-        Some(r) => r,
-        None => {
-            let error = ErrorResponse::RoomNotFound {
-                room_id: req.room_id.clone(),
+    // authenticate jwt and get user_id
+    let user_id = match authenticate_request(&headers).await {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::warn!("Authentication failed for joining room: {:?}", e);
+            let response = ErrorResponse::AuthenticationFailed {
+                message: String::from("Authentication invalid for joining room"),
             };
-            return (StatusCode::NOT_FOUND, Json(error)).into_response();
+
+            return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
         }
     };
 
-    // TO DO: Hash passowrd and check if hashed passwords are accurate
-    // Verify password
-    if room.room_password != req.room_password {
-        let error = ErrorResponse::InvalidPassword {
-            message: "Incorrect room password".to_string(),
-        };
-        return (StatusCode::UNAUTHORIZED, Json(error)).into_response();
-    }
-    // Add user to room
-    room.members.insert(req.user_id.clone());
+    // TO DO: Mahmoud verify hashed room_password against the password from the request password
+    // if room doesnt exist in database or verififcation fails return the the appropraite ErrorResponse and return to caller
+    // Load chat history from database and add user to room in database
+
+    // if room.room_password != req.room_password {
+    //     let error = ErrorResponse::InvalidPassword {
+    //         message: "Incorrect room password".to_string(),
+    //     };
+    //     return (StatusCode::UNAUTHORIZED, Json(error)).into_response();
+    // }
+    let chat_history = Vec::new(); // Temporary Empty for now
+
+    // get the lock
+    let mut user_rooms = state.user_rooms.lock().await;
 
     // Add user to user_rooms mapping
-    user_rooms.insert(req.user_id.clone(), req.room_id.clone());
-
-    // TODO: Load chat history from database
-    let chat_history = Vec::new(); // Empty for now
-
-    // TODO: Save user room membership to database
+    user_rooms.insert(user_id.clone(), req.room_id.clone());
 
     let response = JoinRoomResponse {
         room_id: req.room_id,
@@ -316,10 +305,233 @@ async fn join_room_handler(
     (StatusCode::OK, Json(response)).into_response()
 }
 
-// TEMPORARY: For demo purposes, we'll accept user_id in the request body later should use JWT
-#[derive(Deserialize)]
-struct WsQuery {
-    user_id: String,
+/*
+Brief Explanation: delete room.
+
+Parameters:
+    state: Arc<AppState> - the shared app state that contains the pool Hashmaps for the rooms
+    headers: HeaderMap - the header containng the jwt
+    req: Json<DeleteRoomRequest> - deseralize the json request body into DeleteRoomRequest
+Returns:
+    Response - seralized response stating success or failure
+*/
+async fn delete_room_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(req): Json<DeleteRoomRequest>,
+) -> impl IntoResponse {
+    tracing::info!("Delete room request received for room: {}", &req.room_id);
+    // authenticate jwt and get user_id
+    let user_id = match authenticate_request(&headers).await {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::warn!("Authentication failed for deleting room: {:?}", e);
+            let response = ErrorResponse::AuthenticationFailed {
+                message: String::from("Authentication invalid for deleting room"),
+            };
+
+            return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
+        }
+    };
+
+    // get the owner of the room
+    let room_owner = {
+        let rooms = state.rooms.lock().await;
+        match rooms.get(&req.room_id) {
+            Some(room) => room.owner.clone(),
+            None => {
+                tracing::warn!(
+                    "Deleting failed due to issue finding room: {}",
+                    &req.room_id
+                );
+                let response = ErrorResponse::RoomNotFound {
+                    room_id: req.room_id.clone(),
+                };
+
+                return (StatusCode::NOT_FOUND, Json(response)).into_response();
+            }
+        }
+    };
+
+    // check if owner of the room matches the user making the request
+    if room_owner != user_id {
+        tracing::warn!("Only owner can delete room: {}", &req.room_id);
+        let response = ErrorResponse::InvalidPermissions {
+            message: format!("Failed to delete room: {}", &req.room_id),
+        };
+
+        return (StatusCode::FORBIDDEN, Json(response)).into_response();
+    }
+
+    // let all active users in room know that room is deleted
+    {
+        let room_deleted_msg = ServerWsMessage::RoomDeleted {
+            room_id: req.room_id.clone(),
+        };
+        broadcast_to_room(&state, &req.room_id, &room_deleted_msg).await;
+        // pause for a little bit to ensure users recived message
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+
+    // clean up
+
+    // delete the room
+    {
+        let mut rooms = state.rooms.lock().await;
+        rooms.remove(&req.room_id);
+    }
+
+    // remove boradcast channel for room
+    {
+        let mut room_channels = state.room_channels.lock().await;
+        room_channels.remove(&req.room_id);
+        tracing::info!("Removed broadcast channel for room: {}", &req.room_id);
+    }
+
+    // remove users attached to the room
+    {
+        let mut user_rooms = state.user_rooms.lock().await;
+        let room_id_to_delete = &req.room_id;
+        // only keep pairs where room_id is not the same as the room being deleted
+        user_rooms.retain(|_user_id, room_value_id| room_value_id != room_id_to_delete);
+        tracing::info!("Removed users for room: {}", room_id_to_delete);
+    }
+
+    tracing::info!("Room {} Deleted", &req.room_id);
+
+    // TODO: Mahmoud database data deletion idk if you wana have a sepertae function in another file to do this
+
+    // send success message
+    let response = SuccessResponse {
+        message: format!("Successfully deleted room: {}", &req.room_id),
+    };
+
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+/*
+Brief Explanation: list all rooms that a user has ever joined that they have not permanentaly left.
+
+Parameters:
+    state: Arc<AppState> - the shared app state that contains the pool Hashmaps for the rooms
+    headers: HeaderMap - the header containng the jwt
+    req: Json<ListRoomsRequest> - deseralize the json request body into ListRoomsRequest
+Returns:
+    Response - seralized response stating success or failure
+*/
+async fn list_all_rooms_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(_req): Json<ListRoomsRequest>,
+) -> impl IntoResponse {
+    tracing::info!("List all rooms request received");
+    // authenticate jwt and get user_id
+    let _user_id = match authenticate_request(&headers).await {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::warn!("Authentication failed for listing all rooms: {:?}", e);
+            let response = ErrorResponse::AuthenticationFailed {
+                message: String::from("Authentication invalid for listing all room"),
+            };
+
+            return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
+        }
+    };
+
+    // TODO: Mahmoud database data pull so we want to get all the rooms that a user was previously joined
+    // the database should a vector of rooms where each element contains the room_id, the owner of the room, and default value of zero set for users_count
+    // we set it to a default of 0 as the in-memory state will actually know who is connected to the room rn
+    //  currently rooms_db is just an empty vector but can you please fill it with the data needed
+    let rooms_db: Vec<RoomInfo> = Vec::new();
+
+    // get the lock for rooms to get the number of users currently in the room
+    let rooms = state.rooms.lock().await;
+    let mut final_rooms: Vec<RoomInfo> = Vec::new();
+
+    // go through each room that the caller was previously in and updated how many users are currently in the rooms to be sent to the caller
+    for mut room_info in rooms_db {
+        // check if there is anyone in the room
+        if let Some(active_room) = rooms.get(&room_info.room_id) {
+            // update the default count to represent how many users are actually in the room
+            room_info.users_count = active_room.members.len();
+        }
+        // add the room info to be vector to be sent to caller
+        final_rooms.push(room_info);
+    }
+
+    // send success message
+    let response = ListRoomsResponse { rooms: final_rooms };
+
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+/*
+Brief Explanation: list all active users in the room of interest
+
+Parameters:
+    state: Arc<AppState> - the shared app state that contains the pool Hashmaps for the rooms
+    headers: HeaderMap - the header containng the jwt
+    req: Json<ListRoomUsersRequest> - deseralize the json request body into ListRoomUsersRequest
+Returns:
+    Response - seralized response stating success or failure
+*/
+async fn list_room_active_users_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(req): Json<ListRoomUsersRequest>,
+) -> impl IntoResponse {
+    tracing::info!("List all users in room {} request received", &req.room_id);
+    // authenticate jwt
+    let user_id = match authenticate_request(&headers).await {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::warn!(
+                "Authentication failed for listing all users in room: {:?}",
+                e
+            );
+            let response = ErrorResponse::AuthenticationFailed {
+                message: String::from("Authentication invalid for listing all users in room"),
+            };
+
+            return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
+        }
+    };
+
+    //get the room of interest
+    let rooms = state.rooms.lock().await;
+    let room = match rooms.get(&req.room_id) {
+        Some(r) => r,
+        None => {
+            tracing::error!(
+                "{} room not in memory when trying to list all users.",
+                &req.room_id
+            );
+            let response = ErrorResponse::RoomNotFound {
+                room_id: req.room_id.clone(),
+            };
+            return (StatusCode::NOT_FOUND, Json(response)).into_response();
+        }
+    };
+
+    // go through all active members and add to vector to be sent to caller
+    let mut room_users: Vec<String> = Vec::new();
+    for user in room.members.iter() {
+        room_users.push(user.clone())
+    }
+
+    tracing::info!(
+        "User {} requestd {:?} from room: {}",
+        &user_id,
+        &room_users,
+        &req.room_id
+    );
+    // send success message
+    let response = ListRoomUsersResponse {
+        room_id: req.room_id.clone(),
+        active_users: room_users,
+    };
+
+    (StatusCode::OK, Json(response)).into_response()
 }
 
 /*
@@ -327,21 +539,33 @@ Brief Explanation: Upgrades http to websocket connection.
 
 Parameters:
     state: Arc<AppState> - the shared app state that contains the pool Hashmaps for the rooms
-    req: Query<WsQuery> - deseralize the parameters
+    headers: HeaderMap - the header containng the jwt
 Returns:
     Response - the upgraded websocket connection
 */
 async fn websocket_handler(
     ws: WebSocketUpgrade,
-    Query(query): Query<WsQuery>,
+    headers: HeaderMap,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    tracing::info!("WebSocket connection request from user: {}", query.user_id);
+    // authenticate jwt
+    let user_id = match authenticate_request(&headers).await {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::warn!(
+                "Authentication failed for listing all users in room: {:?}",
+                e
+            );
+            let response = ErrorResponse::AuthenticationFailed {
+                message: String::from("Authentication invalid for websocket connection"),
+            };
 
-    // TODO: Validate JWT token from query params or headers
-    // For now, we just accept the user_id
+            return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
+        }
+    };
+    tracing::info!("WebSocket connection request from user: {}", user_id);
 
-    ws.on_upgrade(move |socket| handle_websocket(socket, query.user_id, state))
+    ws.on_upgrade(move |socket| handle_websocket(socket, user_id, state))
 }
 
 /*
@@ -429,17 +653,6 @@ async fn handle_websocket(socket: WebSocket, user_id: String, state: Arc<AppStat
         }
     });
 
-    // Clone tx to be used by recv_task
-    let tx = {
-        let channels = state.room_channels.lock().await;
-        match channels.get(&room_id) {
-            Some(tx) => tx.clone(),
-            None => {
-                tracing::error!("No broadcast channel for room {}", room_id);
-                return;
-            }
-        }
-    };
     let recv_user_id = user_id.clone();
     let recv_room_id = room_id.clone();
     let recv_state = state.clone();
@@ -449,7 +662,7 @@ async fn handle_websocket(socket: WebSocket, user_id: String, state: Arc<AppStat
         while let Some(Ok(Message::Text(text))) = receiver.next().await {
             // process the message but if there is an error log it and dont send anything out
             if let Err(e) =
-                handle_client_message(&text, &recv_user_id, &recv_room_id, &tx, &recv_state).await
+                handle_client_message(&text, &recv_user_id, &recv_room_id, &recv_state).await
             {
                 tracing::error!("Error handling message: {}", e);
             }
@@ -494,7 +707,6 @@ Parameters:
     text: &str - The string received from a user,
     user_id: &str - The ID of the user who sent the message,
     room_id: &str The ID of the room message was sent from,
-    tx: &broadcast::Sender<String> - the broadcase channel transmitter used in the associated room,
     state: &Arc<AppState> - The shared app state that contains the pool Hashmaps for the rooms
 Returns:
     Response: Result<(), String> - Returns Ok(()) when message is successfuly processed and Err(String) otherwise
@@ -503,7 +715,6 @@ async fn handle_client_message(
     text: &str,
     user_id: &str,
     room_id: &str,
-    tx: &broadcast::Sender<String>,
     state: &Arc<AppState>,
 ) -> Result<(), String> {
     // deserialize message sent from user
@@ -535,20 +746,13 @@ async fn handle_client_message(
                 timestamp: chrono::Utc::now().to_rfc3339(),
             };
 
-            // TODO: Save message to database
+            // TODO: Mahmoud save message to database
 
+            // send message to everyone in room
             let broadcast_msg = ServerWsMessage::MessageBroadcast(chat_msg);
-            // serialize message
-            let json = match serde_json::to_string(&broadcast_msg) {
-                Ok(msg) => msg,
-                Err(e) => {
-                    tracing::error!("Failed to serialize message for {}: {}", user_id, e);
-                    return Err(format!("Failed to serialize message: {}", e));
-                }
-            };
+            broadcast_to_room(state, room_id, &broadcast_msg).await;
 
-            // send serialized message to channel
-            let _ = tx.send(json);
+            tracing::info!("User {} sent message {:?}", user_id, &broadcast_msg);
         }
 
         ClientWsMessage::LeaveRoom {
@@ -557,7 +761,28 @@ async fn handle_client_message(
             if leave_room_id != room_id {
                 return Err("Cannot leave a room you're not in".to_string());
             }
-            // Disconnect will be handled by the WebSocket close
+            // clean up
+            {
+                let mut user_rooms = state.user_rooms.lock().await;
+                user_rooms.remove(user_id);
+            }
+            {
+                let mut rooms = state.rooms.lock().await;
+                match rooms.get_mut(room_id) {
+                    Some(room) => {
+                        room.members.remove(user_id);
+                    }
+                    None => tracing::info!("room {} missing when user tried to leave", &room_id),
+                }
+            }
+
+            // left others in the room know that user left
+            let left_msg = ServerWsMessage::UserLeft {
+                room_id: leave_room_id.clone(),
+                user_id: user_id.to_string(),
+            };
+            broadcast_to_room(state, &leave_room_id, &left_msg).await;
+
             tracing::info!("User {} leaving room {}", user_id, room_id);
         }
 
@@ -565,8 +790,50 @@ async fn handle_client_message(
             room_id: kick_room_id,
             user_id: kick_user_id,
         } => {
-            // TODO: Verify that the requesting user is the room owner
-            // For now, we'll allow anyone to kick (not secure!)
+            // get the owner of the room
+            let room_owner = {
+                let rooms = state.rooms.lock().await;
+                match rooms.get(&kick_room_id) {
+                    Some(room) => room.owner.clone(),
+                    None => {
+                        tracing::warn!(
+                            "kicking user failed due to issue finding room: {}",
+                            kick_room_id
+                        );
+
+                        return Err("kicking user failed due to issue finding room".to_string());
+                    }
+                }
+            };
+
+            // check if owner of the room matches the user making the request
+            if room_owner != user_id {
+                tracing::warn!("Only owner can kick users from room: {}", kick_room_id);
+                return Err("Only owner can kick users from room".to_string());
+            }
+            // check if owner is trying to kick themselves
+            if kick_user_id == user_id {
+                tracing::warn!("Owner cannot kick themselves from room: {}", kick_room_id);
+                return Err("Owner cannot kick themselves from room".to_string());
+            }
+            // TODO: Mahmoud update the database to remove the kicked user and if they were never in the room return error
+
+            // clean up
+            {
+                let mut user_rooms = state.user_rooms.lock().await;
+                user_rooms.remove(&kick_user_id);
+            }
+            {
+                let mut rooms = state.rooms.lock().await;
+                match rooms.get_mut(&kick_room_id) {
+                    Some(room) => {
+                        room.members.remove(&kick_user_id);
+                    }
+                    None => {
+                        tracing::info!("room {} missing when trying to kick user", kick_room_id)
+                    }
+                }
+            }
 
             let kicked_msg = ServerWsMessage::UserKicked {
                 room_id: kick_room_id.clone(),
@@ -574,22 +841,7 @@ async fn handle_client_message(
             };
             broadcast_to_room(state, &kick_room_id, &kicked_msg).await;
 
-            // TODO: Actually disconnect the kicked user
-        }
-
-        ClientWsMessage::Ping { timestamp } => {
-            let pong = ServerWsMessage::Pong { timestamp };
-            // serialize message
-            let json = match serde_json::to_string(&pong) {
-                Ok(msg) => msg,
-                Err(e) => {
-                    tracing::error!("Failed to serialize pong for {}: {}", user_id, e);
-                    return Err(format!("Failed to serialize pong: {}", e));
-                }
-            };
-
-            // send serialized message to channel
-            let _ = tx.send(json);
+            tracing::info!("User {} kicked from room: {}", &kick_user_id, &kick_room_id);
         }
     }
 
