@@ -114,7 +114,7 @@ pub async fn add_user_to_room(
     room_db_id: uuid::Uuid,
     user_db_id: uuid::Uuid,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query("INSERT INTO room_memberships (room_id, user_id) VALUES ($1, $2)")
+    sqlx::query("INSERT INTO room_memberships (room_id, user_id) VALUES ($1, $2) ON CONFLICT (room_id, user_id) DO NOTHING")
         .bind(room_db_id)
         .bind(user_db_id)
         .execute(pool)
