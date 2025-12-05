@@ -366,11 +366,11 @@ async fn join_room_handler(
             .into_response();
     }
     // 7. check if asscociated room data is in memory if not add it
-    
+
     // check if broadcast channel for room exists if not create it
     {
         let mut rooms_channels = state.room_channels.lock().await;
-        if !rooms_channels.contains_key(&req.room_id){
+        if !rooms_channels.contains_key(&req.room_id) {
             tracing::info!("Room {} not in memory, loading from database", &req.room_id);
             // Create broadcast channel for this room
             let (tx, _rx) = broadcast::channel(100);
@@ -382,9 +382,9 @@ async fn join_room_handler(
     // check in memory room exists
     {
         let mut rooms = state.rooms.lock().await;
-        if !rooms.contains_key(&req.room_id){
+        if !rooms.contains_key(&req.room_id) {
             // get the owner info for the room
-            let room_owner = match db::get_user_by_id(db_pool, db_room.owner_id).await{
+            let room_owner = match db::get_user_by_id(db_pool, db_room.owner_id).await {
                 Ok(user) => user,
                 Err(e) => {
                     tracing::error!("Failed getting room owner info : {:?}", e);
@@ -451,6 +451,42 @@ async fn delete_room_handler(
             return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
         }
     };
+    // get the room_id from the database
+    let room_db = match db::get_room_by_room_id(&state.db_pool, &req.room_id).await {
+        Ok(room) => room,
+        Err(sqlx::Error::RowNotFound) => {
+            tracing::warn!("Room {} not found in DB", &req.room_id);
+            let response = ErrorResponse::RoomNotFound {
+                room_id: req.room_id.clone(),
+            };
+            return (StatusCode::NOT_FOUND, Json(response)).into_response();
+        }
+        Err(e) => {
+            tracing::error!("DB error fetching room {}: {:?}", &req.room_id, e);
+            let response = ErrorResponse::ServerError {
+                message: "Database error fetching room".into(),
+            };
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response)).into_response();
+        }
+    };
+    // get the user model from the database
+    let db_user = match db::get_user_by_user_id(&state.db_pool, &user_id).await {
+        Ok(u) => u,
+        Err(_) => {
+            let err = ErrorResponse::UserNotFound { user_id };
+            return (StatusCode::NOT_FOUND, Json(err)).into_response();
+        }
+    };
+
+    // check if owner of the room matches the user making the request
+    if db_user.id != room_db.owner_id {
+        tracing::warn!("Only owner can delete room: {}", &req.room_id);
+        let response = ErrorResponse::InvalidPermissions {
+            message: "Failed to delete room. You are not the owner!".into(),
+        };
+
+        return (StatusCode::FORBIDDEN, Json(response)).into_response();
+    }
 
     // delete room from the database
     match db::delete_room_by_room_id(&state.db_pool, &req.room_id).await {
@@ -479,7 +515,7 @@ async fn delete_room_handler(
         rooms.contains_key(&req.room_id)
     };
 
-    if room_in_memory{
+    if room_in_memory {
         // get the owner of the room
         let room_owner = {
             let rooms = state.rooms.lock().await;
