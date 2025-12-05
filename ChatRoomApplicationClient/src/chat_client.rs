@@ -183,7 +183,7 @@ impl ChatClient {
                     self.current_room = Some(resp.room_id.clone());
 
                     // Connect WebSocket
-                    if !self.connect_ws_for_room(&resp.room_id).await {
+                    if !self.connect_ws_for_room().await {
                         return false;
                     }
 
@@ -493,9 +493,7 @@ impl ChatClient {
         }
     }
 
-    pub async fn connect_ws_for_room(&mut self, room_id: &str) -> bool {
-        let user_id = self.username.clone().unwrap_or_default();
-
+    pub async fn connect_ws_for_room(&mut self) -> bool {
         let ws_url = format!("{}/ws", self.server_url_ws);
 
         // Copy token
