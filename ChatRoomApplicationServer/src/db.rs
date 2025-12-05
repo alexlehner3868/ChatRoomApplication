@@ -1,4 +1,4 @@
-use crate::message::ChatMessage;
+use crate::message::{ChatMessage, RoomInfo};
 use crate::models::{DbMessage, DbRoom, DbUser};
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{
@@ -181,4 +181,31 @@ pub async fn delete_room_by_room_id(pool: &DbPool, room_id: &str) -> Result<(), 
     .await?;
 
     Ok(())
+}
+
+pub async fn list_all_rooms(pool: &Pool<Postgres>) -> Result<Vec<RoomInfo>, sqlx::Error> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT
+            id,
+            room_id,
+            owner_id,
+            created_at
+        FROM rooms
+        ORDER BY created_at DESC
+        "#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let results = rows
+        .into_iter()
+        .map(|r| RoomInfo {
+            room_id: r.room_id.to_string(),
+            owner: r.owner_id.to_string(),
+            users_count: 0,
+        })
+        .collect();
+
+    Ok(results)
 }

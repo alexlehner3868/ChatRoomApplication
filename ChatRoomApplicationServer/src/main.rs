@@ -529,11 +529,17 @@ async fn list_all_rooms_handler(
         }
     };
 
-    // TODO: Mahmoud database data pull so we want to get all the rooms that a user was previously joined
-    // the database should a vector of rooms where each element contains the room_id, the owner of the room, and default value of zero set for users_count
-    // we set it to a default of 0 as the in-memory state will actually know who is connected to the room rn
-    //  currently rooms_db is just an empty vector but can you please fill it with the data needed
-    let rooms_db: Vec<RoomInfo> = Vec::new();
+    // Fetch all rooms from the database
+    let rooms_db = match db::list_all_rooms(&state.db_pool).await {
+        Ok(rooms) => rooms,
+        Err(e) => {
+            tracing::error!("Database error listing rooms: {:?}", e);
+            let response = ErrorResponse::ServerError {
+                message: "Database error listing rooms".into(),
+            };
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response)).into_response();
+        }
+    };
 
     // get the lock for rooms to get the number of users currently in the room
     let rooms = state.rooms.lock().await;
