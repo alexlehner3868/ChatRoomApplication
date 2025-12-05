@@ -22,10 +22,6 @@ pub struct LoginRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LogoutRequest {}
 
-// The request will already have the token in the header which contains user_id so nothing is needed
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DeleteAccountRequest {}
-
 // The following are associated with the HTTPS Authentication responses
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthSuccessResponse {
@@ -90,7 +86,7 @@ pub struct ListRoomUsersResponse {
     pub active_users: Vec<String>,
 }
 
-// this is a generic response used for LogoutRequest, DeleteAccountRequest, and DeleteRoomRequest
+// this is a generic response used for LogoutRequest and DeleteRoomRequest
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SuccessResponse {
     pub message: String,

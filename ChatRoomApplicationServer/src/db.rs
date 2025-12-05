@@ -7,6 +7,7 @@ use argon2::{
 };
 use sqlx::{Pool, Postgres};
 use std::env;
+use uuid::Uuid;
 
 pub type DbPool = Pool<Postgres>;
 
@@ -44,6 +45,16 @@ pub async fn create_user(
     .bind(password_hash)
     .fetch_one(pool)
     .await?;
+
+    Ok(user)
+}
+
+// fetch a user by thier id
+pub async fn get_user_by_id(pool: &DbPool, id: Uuid) -> Result<DbUser, sqlx::Error> {
+    let user = sqlx::query_as::<_, DbUser>("SELECT * FROM users WHERE id = $1")
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
 
     Ok(user)
 }

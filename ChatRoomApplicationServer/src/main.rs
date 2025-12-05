@@ -365,11 +365,55 @@ async fn join_room_handler(
         )
             .into_response();
     }
-    // get the lock
-    let mut user_rooms = state.user_rooms.lock().await;
+    // 7. check if asscociated room data is in memory if not add it
+    
+    // check if broadcast channel for room exists if not create it
+    {
+        let mut rooms_channels = state.room_channels.lock().await;
+        if !rooms_channels.contains_key(&req.room_id){
+            tracing::info!("Room {} not in memory, loading from database", &req.room_id);
+            // Create broadcast channel for this room
+            let (tx, _rx) = broadcast::channel(100);
 
-    // Add user to user_rooms mapping
-    user_rooms.insert(user_id.clone(), req.room_id.clone());
+            // set the transmitter for the room
+            rooms_channels.insert(req.room_id.clone(), tx);
+        }
+    }
+    // check in memory room exists
+    {
+        let mut rooms = state.rooms.lock().await;
+        if !rooms.contains_key(&req.room_id){
+            // get the owner info for the room
+            let room_owner = match db::get_user_by_id(db_pool, db_room.owner_id).await{
+                Ok(user) => user,
+                Err(e) => {
+                    tracing::error!("Failed getting room owner info : {:?}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::ServerError {
+                            message: "Failed getting room owner info".into(),
+                        }),
+                    )
+                        .into_response();
+                }
+            };
+
+            // set up the room instance and insert it
+            let room = Room {
+                room_id: req.room_id.clone(),
+                room_password: db_room.room_password_hash.clone(),
+                owner: room_owner.user_id,
+                members: HashSet::new(),
+            };
+            rooms.insert(req.room_id.clone(), room);
+        }
+    }
+
+    {
+        let mut user_rooms = state.user_rooms.lock().await;
+        // Add user to user_rooms mapping
+        user_rooms.insert(user_id.clone(), req.room_id.clone());
+    }
 
     let response = JoinRoomResponse {
         room_id: req.room_id,
@@ -427,67 +471,75 @@ async fn delete_room_handler(
         }
     }
 
-    // get the owner of the room
-    let room_owner = {
-        let rooms = state.rooms.lock().await;
-        match rooms.get(&req.room_id) {
-            Some(room) => room.owner.clone(),
-            None => {
-                tracing::warn!(
-                    "Deleting failed due to issue finding room: {}",
-                    &req.room_id
-                );
-                let response = ErrorResponse::RoomNotFound {
-                    room_id: req.room_id.clone(),
-                };
+    // in memory clean up
 
-                return (StatusCode::NOT_FOUND, Json(response)).into_response();
-            }
-        }
+    // check if room exists in memory before trying to clean
+    let room_in_memory = {
+        let rooms = state.rooms.lock().await;
+        rooms.contains_key(&req.room_id)
     };
 
-    // check if owner of the room matches the user making the request
-    if room_owner != user_id {
-        tracing::warn!("Only owner can delete room: {}", &req.room_id);
-        let response = ErrorResponse::InvalidPermissions {
-            message: format!("Failed to delete room: {}", &req.room_id),
+    if room_in_memory{
+        // get the owner of the room
+        let room_owner = {
+            let rooms = state.rooms.lock().await;
+            match rooms.get(&req.room_id) {
+                Some(room) => room.owner.clone(),
+                None => {
+                    tracing::warn!(
+                        "Deleting failed due to issue finding room: {}",
+                        &req.room_id
+                    );
+                    let response = ErrorResponse::RoomNotFound {
+                        room_id: req.room_id.clone(),
+                    };
+
+                    return (StatusCode::NOT_FOUND, Json(response)).into_response();
+                }
+            }
         };
 
-        return (StatusCode::FORBIDDEN, Json(response)).into_response();
-    }
+        // check if owner of the room matches the user making the request
+        if room_owner != user_id {
+            tracing::warn!("Only owner can delete room: {}", &req.room_id);
+            let response = ErrorResponse::InvalidPermissions {
+                message: format!("Failed to delete room: {}", &req.room_id),
+            };
 
-    // let all active users in room know that room is deleted
-    {
-        let room_deleted_msg = ServerWsMessage::RoomDeleted {
-            room_id: req.room_id.clone(),
-        };
-        broadcast_to_room(&state, &req.room_id, &room_deleted_msg).await;
-        // pause for a little bit to ensure users recived message
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    }
+            return (StatusCode::FORBIDDEN, Json(response)).into_response();
+        }
 
-    // clean up
+        // let all active users in room know that room is deleted
+        {
+            let room_deleted_msg = ServerWsMessage::RoomDeleted {
+                room_id: req.room_id.clone(),
+            };
+            broadcast_to_room(&state, &req.room_id, &room_deleted_msg).await;
+            // pause for a little bit to ensure users recived message
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
 
-    // delete the room
-    {
-        let mut rooms = state.rooms.lock().await;
-        rooms.remove(&req.room_id);
-    }
+        // delete the room
+        {
+            let mut rooms = state.rooms.lock().await;
+            rooms.remove(&req.room_id);
+        }
 
-    // remove boradcast channel for room
-    {
-        let mut room_channels = state.room_channels.lock().await;
-        room_channels.remove(&req.room_id);
-        tracing::info!("Removed broadcast channel for room: {}", &req.room_id);
-    }
+        // remove boradcast channel for room
+        {
+            let mut room_channels = state.room_channels.lock().await;
+            room_channels.remove(&req.room_id);
+            tracing::info!("Removed broadcast channel for room: {}", &req.room_id);
+        }
 
-    // remove users attached to the room
-    {
-        let mut user_rooms = state.user_rooms.lock().await;
-        let room_id_to_delete = &req.room_id;
-        // only keep pairs where room_id is not the same as the room being deleted
-        user_rooms.retain(|_user_id, room_value_id| room_value_id != room_id_to_delete);
-        tracing::info!("Removed users for room: {}", room_id_to_delete);
+        // remove users attached to the room
+        {
+            let mut user_rooms = state.user_rooms.lock().await;
+            let room_id_to_delete = &req.room_id;
+            // only keep pairs where room_id is not the same as the room being deleted
+            user_rooms.retain(|_user_id, room_value_id| room_value_id != room_id_to_delete);
+            tracing::info!("Removed users for room: {}", room_id_to_delete);
+        }
     }
 
     tracing::info!("Room {} Deleted", &req.room_id);
@@ -873,12 +925,7 @@ async fn handle_client_message(
                 }
             }
 
-            // left others in the room know that user left
-            let left_msg = ServerWsMessage::UserLeft {
-                room_id: leave_room_id.clone(),
-                user_id: user_id.to_string(),
-            };
-            broadcast_to_room(state, &leave_room_id, &left_msg).await;
+            //user left message is not boradcast here because it will automatically be handled in handle_websocket for disconection
 
             tracing::info!("User {} leaving room {}", user_id, room_id);
         }
