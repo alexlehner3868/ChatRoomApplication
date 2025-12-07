@@ -32,7 +32,7 @@ pub fn print_help() {
 
 {title}Room Management Commands:{reset}
   {b}{cmd}/active_users{r}      Show all active users in the current room
-  {b}{cmd}/kick{r}              Remove a user from your room (usage: /kick <username>)
+  {b}{cmd}/kick{r}              Remove a user from your current room (owner only)(usage: /kick <username>)
   {b}{cmd}/leave{r}             Leave the current chat room
 
 {title}Messaging Commands:{reset}

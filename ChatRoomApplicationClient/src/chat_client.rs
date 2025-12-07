@@ -439,12 +439,18 @@ impl ChatClient {
 
         // Parse response
         if let Ok(users_resp) = serde_json::from_str::<ListRoomUsersResponse>(&response) {
+            let current_user = self.username.clone().unwrap_or_default();
+
             header(&format!("Active Users in '{}'", room));
             if users_resp.active_users.is_empty() {
                 info(" - No active users");
             } else {
                 for user in users_resp.active_users {
-                    println!(" - {}", user);
+                    if user == current_user {
+                        println!(" - {}You{}", YELLOW, RESET); 
+                    }else {
+                        println!(" - {}", user);
+                    }      
                 }
             }
         } else if let Ok(err_resp) = serde_json::from_str::<ErrorResponse>(&response) {
