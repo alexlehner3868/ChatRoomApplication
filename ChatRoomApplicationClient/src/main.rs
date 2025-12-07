@@ -188,6 +188,9 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                 warning("Quitting Program");
                 std::process::exit(1);
             }
+            cmd if cmd.starts_with('/') => {
+                error("Unknown Command - try /help");
+            }
             _ => {
                 client.chat_message(input).await;
             }
@@ -229,6 +232,7 @@ async fn main() {
                     warning("Quitting Program");
                     std::process::exit(1);
                 }
+                
                 _ => error("Unknown Command - try /help"),
             }
         }
