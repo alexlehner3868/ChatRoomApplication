@@ -451,7 +451,7 @@ async fn delete_room_handler(
             return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
         }
     };
-    // get the room_id from the database
+    // get the room model from the database
     let room_db = match db::get_room_by_room_id(&state.db_pool, &req.room_id).await {
         Ok(room) => room,
         Err(sqlx::Error::RowNotFound) => {
@@ -931,7 +931,41 @@ async fn handle_client_message(
                 timestamp: chrono::Utc::now().to_rfc3339(),
             };
 
-            // TODO: Mahmoud save message to database
+            // TODO: Save message to database
+            // 1. Fetch room model to get its UUID
+            let room_db = match db::get_room_by_room_id(&state.db_pool, room_id).await {
+                Ok(room) => room,
+                Err(sqlx::Error::RowNotFound) => {
+                    tracing::error!("Room {} not found in DB while saving message", room_id);
+                    return Err("Room not found".to_string());
+                }
+                Err(e) => {
+                    tracing::error!("DB error fetching room {}: {:?}", room_id, e);
+                    return Err("Database error fetching room".into());
+                }
+            };
+
+            // 2. Fetch user model to get UUID
+            let user_db = match db::get_user_by_user_id(&state.db_pool, user_id).await {
+                Ok(u) => u,
+                Err(_) => {
+                    tracing::error!("User {} not found while saving message", user_id);
+                    return Err("User not found".to_string());
+                }
+            };
+
+            // 3. Insert message
+            if let Err(err) = db::save_message(
+                &state.db_pool,
+                room_db.id, // UUID of room
+                user_db.id, // UUID of user
+                &chat_msg.content,
+            )
+            .await
+            {
+                tracing::error!("Failed to save message to DB: {:?}", err);
+                return Err("Failed to save message".into());
+            }
 
             // send message to everyone in room
             let broadcast_msg = ServerWsMessage::MessageBroadcast(chat_msg);
@@ -996,8 +1030,67 @@ async fn handle_client_message(
                 tracing::warn!("Owner cannot kick themselves from room: {}", kick_room_id);
                 return Err("Owner cannot kick themselves from room".to_string());
             }
-            // TODO: Mahmoud update the database to remove the kicked user and if they were never in the room return error
+            // TODO: Update the database to remove the kicked user and if they were never in the room return error
+            // 1. Fetch room (to get room UUID)
+            let room_db = match db::get_room_by_room_id(&state.db_pool, &kick_room_id).await {
+                Ok(room) => room,
+                Err(sqlx::Error::RowNotFound) => {
+                    tracing::warn!("Room {} not found in DB when kicking user", kick_room_id);
+                    return Err("Room not found".to_string());
+                }
+                Err(e) => {
+                    tracing::error!("DB error fetching room {}: {:?}", kick_room_id, e);
+                    return Err("Database error fetching room".into());
+                }
+            };
+            // 2. Fetch the kicked_user_db
+            let kicked_user_db = match db::get_user_by_user_id(&state.db_pool, &kick_user_id).await
+            {
+                Ok(u) => u,
+                Err(_) => {
+                    tracing::warn!(
+                        "User {} not found in DB when trying to kick from room {}",
+                        kick_user_id,
+                        kick_room_id
+                    );
+                    return Err("User not found".to_string());
+                }
+            };
 
+            // 3. Remove membership in DB
+            match db::remove_user_from_room(
+                &state.db_pool,
+                room_db.id,        // room UUID
+                kicked_user_db.id, // kicked user UUID
+            )
+            .await
+            {
+                Ok(true) => {
+                    tracing::info!(
+                        "User {} removed from DB membership for room {}",
+                        kick_user_id,
+                        kick_room_id
+                    );
+                }
+                Ok(false) => {
+                    // They were not in the room
+                    tracing::warn!(
+                        "User {} was not in room {} (DB reported 0 rows affected)",
+                        kick_user_id,
+                        kick_room_id
+                    );
+                    return Err("User is not a member of this room".into());
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "DB error removing user {} from room {}: {:?}",
+                        kick_user_id,
+                        kick_room_id,
+                        e
+                    );
+                    return Err("Failed to update room membership".into());
+                }
+            }
             // clean up
             {
                 let mut user_rooms = state.user_rooms.lock().await;
