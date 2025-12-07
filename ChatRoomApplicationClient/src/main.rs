@@ -145,7 +145,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                 success("Returned to Lobby");
                 break;
             }
-            "/help" => print_help(),
+            "/help" => print_help(&client, true),
             "/active_users" => client.get_active_users().await,
             "/kick" => kick_user(client, args.clone()).await,
             "/quit" => {
@@ -188,7 +188,7 @@ async fn main() {
             match user_input {
                 "/login" => logged_in = login(&mut client).await,
                 "/sign_up" => sign_up(&mut client).await,
-                "/help" => print_help(),
+                "/help" => print_help(&client, logged_in),
                 "/quit" => {
                     warning("Quitting Program");
                     std::process::exit(1);
@@ -229,7 +229,7 @@ async fn main() {
                     warning("Quitting Program");
                     std::process::exit(1);
                 }
-                "/help" => print_help(),
+                "/help" => print_help(&client, logged_in),
                 _ => error("Unknown Command - try /help"),
             }
         }

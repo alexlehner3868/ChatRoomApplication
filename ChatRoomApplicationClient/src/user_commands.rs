@@ -3,11 +3,25 @@ use std::process::{Command, Stdio};
 
 use crate::chat_client::ChatClient;
 use crate::color_formatting::*;
-use crate::color_formatting::{BOLD, BRIGHT_GREEN, RESET, YELLOW};
+use crate::color_formatting::{BOLD, BRIGHT_GREEN, RESET, YELLOW, DIM};
 use crate::in_chat_room;
 use crate::utils::*;
 
-pub fn print_help() {
+pub fn print_help(client: &ChatClient, logged_in: bool) {
+    // Get current state of the client 
+    let in_room = client.current_room.is_some();
+    let logged_in = logged_in;
+    let in_lobby = logged_in && !in_room;
+
+    let highlight = |enabled: bool, text: &str| {
+        if enabled {
+            format!("{}{}{}", YELLOW, text, RESET)
+        } else {
+           format!("{}{}{}", DIM, text, RESET)
+        }
+    };
+
+
     let help_text = format!(
         r#"
 {title}=============================={reset}
@@ -15,37 +29,53 @@ pub fn print_help() {
 {title}=============================={reset}
 
 {title}General Commands:{reset}
-  {b}{cmd}/help{r}              Show this help menu
-  {b}{cmd}/quit{r}              Quit the chat room application
+  {b}{cmd}{help}{reset}              Show this help menu
+  {b}{cmd}{quit}{reset}              Quit the chat room application
 
 {title}Authentication Commands:{reset}
-  {b}{cmd}/sign_up{r}           Create a new username and password
-  {b}{cmd}/login{r}             Login with your username and password
-  {b}{cmd}/logout{r}            Logout of the chatroom application
+  {b}{cmd}{sign_up}{reset}           Create a new username and password
+  {b}{cmd}{login}{reset}             Login with your username and password
+  {b}{cmd}{logout}{reset}            Logout of the chatroom application
 
 {title}Navigation Commands:{reset}
-  {b}{cmd}/all_rooms{r}         Show all available chat rooms
-  {b}{cmd}/active_rooms{r}      Show all active chat rooms
-  {b}{cmd}/create{r}            Create a new chat room (usage: /create <room_id>)
-  {b}{cmd}/join{r}              Join an existing chat room (usage: /join <room_id>)
-  {b}{cmd}/delete{r}            Delete your chat room (owner only) (usage: /delete <room_id>)
+  {b}{cmd}{all_rooms}{reset}         Show all available chat rooms
+  {b}{cmd}{active_rooms}{reset}      Show all active chat rooms
+  {b}{cmd}{create}{reset}            Create a new chat room (usage: /create <room_id>)
+  {b}{cmd}{join}{reset}              Join an existing chat room (usage: /join <room_id>)
+  {b}{cmd}{delete}{reset}            Delete your chat room (usage: /delete <room_id>)
 
 {title}Room Management Commands:{reset}
-  {b}{cmd}/active_users{r}      Show all active users in the current room
-  {b}{cmd}/kick{r}              Remove a user from your current room (owner only)(usage: /kick <username>)
-  {b}{cmd}/leave{r}             Leave the current chat room
+  {b}{cmd}{active_users}{reset}      Show all active users in the current room
+  {b}{cmd}{kick}{reset}              Remove a user from your current room (usage: /kick <username>)
+  {b}{cmd}{leave}{reset}             Leave the current chat room
 
 {title}Messaging Commands:{reset}
-  {b}{cmd}<message>{r}          Send a message to your current room
+  {b}{cmd}{message}{reset}          Send a message to your current room
 
 {title}(Press 'q' to exit help){reset}
 ==============================
 "#,
         title = BRIGHT_GREEN,
         cmd = YELLOW,
-        b = BOLD,
-        r = RESET,
-        reset = RESET
+        b   = BOLD,
+        reset   = RESET,
+
+        // Set dynamically based on state
+        help = highlight(true, "/help"),
+        quit = highlight(true, "/quit"),
+        sign_up = highlight(!logged_in, "/sign_up"),
+        login = highlight(!logged_in, "/login"),
+        logout = highlight(logged_in, "/logout"),
+        all_rooms = highlight(in_lobby, "/all_rooms"),
+        active_rooms = highlight(in_lobby, "/active_rooms"),
+        create = highlight(in_lobby, "/create"),
+        join = highlight(in_lobby, "/join"),
+        delete = highlight(in_lobby, "/delete"),
+
+        active_users = highlight(in_room, "/active_users"),
+        kick = highlight(in_room, "/kick"),
+        leave = highlight(in_room, "/leave"),
+        message = highlight(in_room, "<message>")
     );
 
     let mut window = Command::new("less")
