@@ -49,7 +49,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                         room_id: deleted_room,
                     } => {
                         if deleted_room == current_room {
-                            warning("[Room has been deleted]");
+                            warning("Room has been deleted");
                             let _ = exit_tx_clone.send(true);
                             break;
                         }
