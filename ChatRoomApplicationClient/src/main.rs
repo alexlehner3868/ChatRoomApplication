@@ -10,6 +10,7 @@ mod utils;
 use crate::chat_client::ChatClient;
 use crate::color_formatting::*;
 use crate::messages::ServerWsMessage;
+use crate::messages::ErrorResponse;
 use crate::user_commands::*;
 use crate::utils::*;
 
@@ -97,12 +98,47 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                             }
                         }
                     }
-                    ServerWsMessage::Pong { .. } => {} // TBD
+                    ServerWsMessage::Pong { .. } => {}
                     // Display error from server
                     ServerWsMessage::Error { error_msg } => {
                         error(&error_msg);
                     }
                 }
+                continue;
+            }
+
+            if let Ok(text) = msg.to_text() && let Ok(err_resp) = serde_json::from_str::<ErrorResponse>(text) {
+                match err_resp {
+                    ErrorResponse::InvalidPermissions { message } => {
+                        error(&format!("Kick failed: {}", message));
+                    }
+                    ErrorResponse::UserNotFound { user_id } => {
+                        error(&format!("Kick failed: User '{}' not found", user_id));
+                    }
+                    ErrorResponse::NotInRoom { room_id } => {
+                        error(&format!("Kick failed: You are not in room '{}'", room_id));
+                    }
+                    ErrorResponse::RoomNotFound { room_id } => {
+                        error(&format!("Room '{}' does not exist", room_id));
+                    }
+                    ErrorResponse::ServerError { message } => {
+                        error(&format!("Server error: {}", message));
+                    }
+                    ErrorResponse::InvalidPassword { message } => {
+                        error(&format!("Invalid password: {}", message));
+                    }
+                    ErrorResponse::AuthenticationFailed { message } => {
+                        error(&format!("Authentication failed: {}", message));
+                    }
+                    ErrorResponse::UserAlreadyExists { user_id } => {
+                        error(&format!("User '{}' already exists", user_id));
+                    }
+                    other => {
+                        error(&format!("Error: {:?}", other));
+                    }
+                }
+
+                continue;
             }
         }
     });
@@ -130,7 +166,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
             continue;
         }
 
-        // Remove the prompt line for cleanliness of output (TODO - does this also remove a /kick or a /active_users ??? ALEX sort out)
+        // Remove the prompt line for cleanliness of output
         erase_last_line();
 
         let args: Vec<&str> = input.split_whitespace().collect();

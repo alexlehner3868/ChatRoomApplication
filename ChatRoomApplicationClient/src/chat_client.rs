@@ -413,10 +413,7 @@ impl ChatClient {
             error("WebSocket not connected");
             return;
         }
-
-        success(&format!("Kick request sent for '{}'", username));
     }
-
 
     pub async fn get_active_users(&mut self) {
         let room = match &self.current_room {
@@ -447,10 +444,10 @@ impl ChatClient {
             } else {
                 for user in users_resp.active_users {
                     if user == current_user {
-                        println!(" - {}You{}", YELLOW, RESET); 
-                    }else {
+                        println!(" - {}You{}", YELLOW, RESET);
+                    } else {
                         println!(" - {}", user);
-                    }      
+                    }
                 }
             }
         } else if let Ok(err_resp) = serde_json::from_str::<ErrorResponse>(&response) {

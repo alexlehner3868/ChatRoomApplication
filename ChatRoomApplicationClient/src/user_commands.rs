@@ -3,12 +3,12 @@ use std::process::{Command, Stdio};
 
 use crate::chat_client::ChatClient;
 use crate::color_formatting::*;
-use crate::color_formatting::{BOLD, BRIGHT_GREEN, RESET, YELLOW, DIM};
+use crate::color_formatting::{BOLD, BRIGHT_GREEN, DIM, RESET, YELLOW};
 use crate::in_chat_room;
 use crate::utils::*;
 
 pub fn print_help(client: &ChatClient, logged_in: bool) {
-    // Get current state of the client 
+    // Get current state of the client
     let in_room = client.current_room.is_some();
     let logged_in = logged_in;
     let in_lobby = logged_in && !in_room;
@@ -17,10 +17,9 @@ pub fn print_help(client: &ChatClient, logged_in: bool) {
         if enabled {
             format!("{}{}{}", YELLOW, text, RESET)
         } else {
-           format!("{}{}{}", DIM, text, RESET)
+            format!("{}{}{}", DIM, text, RESET)
         }
     };
-
 
     let help_text = format!(
         r#"
@@ -57,9 +56,8 @@ pub fn print_help(client: &ChatClient, logged_in: bool) {
 "#,
         title = BRIGHT_GREEN,
         cmd = YELLOW,
-        b   = BOLD,
-        reset   = RESET,
-
+        b = BOLD,
+        reset = RESET,
         // Set dynamically based on state
         help = highlight(true, "/help"),
         quit = highlight(true, "/quit"),
@@ -71,7 +69,6 @@ pub fn print_help(client: &ChatClient, logged_in: bool) {
         create = highlight(in_lobby, "/create"),
         join = highlight(in_lobby, "/join"),
         delete = highlight(in_lobby, "/delete"),
-
         active_users = highlight(in_room, "/active_users"),
         kick = highlight(in_room, "/kick"),
         leave = highlight(in_room, "/leave"),
