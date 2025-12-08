@@ -23,10 +23,6 @@ pub struct LoginRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LogoutRequest {}
 
-// The request will already have the token in the header which contains user_id so nothing is needed
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DeleteAccountRequest {}
-
 // The following are associated with the HTTPS Authentication responses
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthSuccessResponse {
@@ -55,16 +51,6 @@ pub struct DeleteRoomRequest {
     pub room_id: String,
 }
 
-// even though JoinRoomRequest should get a deafault amount of chat history this request is necessary
-// if a client wants to load in even more history
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GetChatHistoryRequest {
-    pub room_id: String,
-    // for pagination if we are loading in a set amount
-    pub limit: Option<usize>,
-    // where to grab the next messages of size limit from, probably based on timestamp
-    pub before_timestamp: Option<String>,
-}
 
 // doesnt need body as it will pull the user_id from the token attached to http request
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -90,14 +76,6 @@ pub struct CreateRoomResponse {
 pub struct JoinRoomResponse {
     pub room_id: String,
     pub chat_history: Vec<ChatMessage>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GetChatHistoryResponse {
-    pub room_id: String,
-    pub chat_history: Vec<ChatMessage>,
-    // useful to stop clients from making unecessary requests if no more messages are available
-    pub more_messages: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
