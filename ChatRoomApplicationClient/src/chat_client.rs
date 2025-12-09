@@ -256,10 +256,9 @@ impl ChatClient {
         }
 
         // Close WS
-        if let Some(mut sender) = self.ws_sender.take() {
-            if let Err(e) = sender.close().await {
+        if let Some(mut sender) = self.ws_sender.take() 
+            && let Err(e) = sender.close().await {
                 error(&format!("Failed to close WebSocket: {}", e));
-            }
         }
 
         // Update client state
@@ -407,11 +406,9 @@ impl ChatClient {
         if let Some(sender) = &mut self.ws_sender {
             if let Err(e) = sender.send(Message::Text(serialized.into())).await {
                 error(&format!("Failed to send kick message: {}", e));
-                return;
             }
         } else {
             error("WebSocket not connected");
-            return;
         }
     }
 

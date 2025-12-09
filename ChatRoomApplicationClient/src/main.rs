@@ -145,7 +145,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                 success("Returned to Lobby");
                 break;
             }
-            "/help" => print_help(&client, true),
+            "/help" => print_help(client, true),
             "/active_users" => client.get_active_users().await,
             "/kick" => kick_user(client, args.clone()).await,
             "/quit" => {
@@ -159,7 +159,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                 client.chat_message(input).await;
             }
         }
-    }
+    }ddd
 }
 
 #[tokio::main]

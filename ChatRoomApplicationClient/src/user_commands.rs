@@ -10,7 +10,6 @@ use crate::utils::*;
 pub fn print_help(client: &ChatClient, logged_in: bool) {
     // Get current state of the client
     let in_room = client.current_room.is_some();
-    let logged_in = logged_in;
     let in_lobby = logged_in && !in_room;
 
     let highlight = |enabled: bool, text: &str| {
