@@ -38,8 +38,6 @@ use dotenvy::dotenv;
 // the struct represents the room used by users.
 #[derive(Clone)]
 struct Room {
-    room_id: String,
-    room_password: String,
     // user_id of the creator of the room
     owner: String,
     //  a set of user_ids connected to room via websockets.
@@ -247,8 +245,6 @@ async fn create_room_handler(
 
     // Create room
     let room = Room {
-        room_id: req.room_id.clone(),
-        room_password: req.room_password.clone(),
         owner: user_id.clone(),
         members: HashSet::new(),
     };
@@ -400,8 +396,6 @@ async fn join_room_handler(
 
             // set up the room instance and insert it
             let room = Room {
-                room_id: req.room_id.clone(),
-                room_password: db_room.room_password_hash.clone(),
                 owner: room_owner.user_id,
                 members: HashSet::new(),
             };
