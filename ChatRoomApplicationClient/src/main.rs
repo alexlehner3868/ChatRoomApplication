@@ -159,7 +159,7 @@ async fn in_chat_room(client: &mut ChatClient, room_id: &str) {
                 client.chat_message(input).await;
             }
         }
-    }ddd
+    }
 }
 
 #[tokio::main]
