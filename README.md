@@ -4,7 +4,7 @@
 https://youtu.be/HwRxdH78rCQ
 
 ## Video Slide Presentation:
-
+PUT LINK HERE
 ## Team Information: 
 - Alex Lehner (alex.lehner@mail.utoronto.ca) - 1004947506
 - Mohamad Alkahil (m.alkahil@mail.utoronto.ca) - 1005263448
