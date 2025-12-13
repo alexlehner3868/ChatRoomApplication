@@ -1,4 +1,4 @@
-# ECE1724 Terminal-Based Multi-User Chat Room with Real-Time and Persistent Messaging
+# ECE1724: Terminal-Based Multi-User Chat Room with Real-Time and Persistent Messaging
 
 ## Team Information: 
 - Alex Lehner (alex.lehner@mail.utoronto.ca) - 1004947506
