@@ -9,7 +9,7 @@
 https://youtu.be/HwRxdH78rCQ
 
 ## Video Slide Presentation:
-PUT LINK HERE
+https://www.youtube.com/watch?v=PMGnzHa9-gQ
 
 ## Motivation:
 Our motivation for undertaking this project is twofold: to deepen our own proficiency in Rust and systems programming and to create a comprehensive reference application that supports future Rust learners. As Rust fans, we wanted a project that would challenge us across the full spectrum of application development. We intentionally sought a problem that would require us to explore Rust’s versatility in backend development, frontend UI design, asynchronous communication, persistent storage, and secure user authentication.
