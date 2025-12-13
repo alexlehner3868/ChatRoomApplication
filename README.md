@@ -1,14 +1,15 @@
 # ECE1724 Terminal-Based Multi-User Chat Room with Real-Time and Persistent Messaging
 
+## Team Information: 
+- Alex Lehner (alex.lehner@mail.utoronto.ca) - 1004947506
+- Mohamad Alkahil (m.alkahil@mail.utoronto.ca) - 1005263448
+- Mahmoud (mahmoud.anklis@mail.utoronto.ca) - 1005198313
+
 ## Video Demo:
 https://youtu.be/HwRxdH78rCQ
 
 ## Video Slide Presentation:
 PUT LINK HERE
-## Team Information: 
-- Alex Lehner (alex.lehner@mail.utoronto.ca) - 1004947506
-- Mohamad Alkahil (m.alkahil@mail.utoronto.ca) - 1005263448
-- Mahmoud (mahmoud.anklis@mail.utoronto.ca) - 1005198313
 
 ## Motivation:
 Our motivation for undertaking this project is twofold: to deepen our own proficiency in Rust and systems programming and to create a comprehensive reference application that supports future Rust learners. As Rust fans, we wanted a project that would challenge us across the full spectrum of application development. We intentionally sought a problem that would require us to explore Rust’s versatility in backend development, frontend UI design, asynchronous communication, persistent storage, and secure user authentication.
