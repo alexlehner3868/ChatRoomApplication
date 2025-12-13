@@ -13,8 +13,11 @@ PUT LINK HERE
 
 ## Motivation:
 Our motivation for undertaking this project is twofold: to deepen our own proficiency in Rust and systems programming and to create a comprehensive reference application that supports future Rust learners. As Rust fans, we wanted a project that would challenge us across the full spectrum of application development. We intentionally sought a problem that would require us to explore Rust’s versatility in backend development, frontend UI design, asynchronous communication, persistent storage, and secure user authentication.
+
 Rust’s strong guarantees around memory safety and its ownership system make it especially well-suited for applications involving concurrency, which is an essential requirement for a real-time multi-user chat room. By building a terminal-based chat application with persistent messaging, multi-room support, and authenticated users, we gain hands-on experience with key systems programming concepts such as communication protocols, asynchronous concurrency models, real-time I/O, and database-backed state management. This breadth of exposure aligns perfectly with our personal learning goals and allows us to engage deeply with the practical aspects of designing reliable, secure, and concurrent software.
+
 Beyond our own development, we also aim to address a gap in the Rust ecosystem. While several Rust-based chat applications exist, few provide a fully realized, end-to-end example that integrates a terminal UI, persistent user and message storage, authentication, multi-room capabilities, and structured asynchronous design. As Rust continues to grow in popularity, the demand for well-designed, full-stack reference projects increases. Our project is designed to meet that need by serving as a concrete example of a complete, production-style Rust application, one that future Rustaceans can study, extend, and learn from.
+
 Ultimately, this project represents an opportunity for personal growth while contributing meaningfully to the learning resources available within the Rust community. By building a robust, real-time, terminal-based chat system, we aim to both strengthen our own systems programming skills and support others who are beginning their journeys with Rust.
 
 ## Objectives: 
@@ -241,11 +244,12 @@ To quit the program:
 This section describes how to set up the chatroom, which includes the server and the client. 
 
 ### Prerequisites
-*Note* The application runs on Linux, MacOS, or Windows WSL. 
+*Note* The application runs on Linux and MacOS. If you have a Windows computer, please use Windows WSL.
+
 Ensure that the following prerequisites are installed:
-Rust
-Git
-OpenSSL (usually already pre-installed on Linux, Mac and WSL)
+  + Rust
+  + Git
+  + OpenSSL (usually already pre-installed on Linux, Mac and WSL)
 
 ### Cloning the Repo
 
@@ -287,6 +291,7 @@ cd ChatRoomApplicationClient
 cargo run
 ```
 Upon launch, the client begins in the logged-out state, and users can register or log in.
+
 **Note:** Ensure the server is running before the client is launched.
 
 
@@ -301,14 +306,13 @@ In conclusion, while building a project that we are all very proud of, we streng
 ## Individual Contributions:
 **Alex: Responsible for implementing the entire client for the chatroom, including user commands, UI and chatroom workflows.**
   - Built robust command-handling system to parse all client commands (`/login`, `/sign_up`, `/join`, `/kick`, `/quit`, `/create`, `/active_users`, `/all_rooms`, `/active_rooms`, `/help`, `/leave`, '`/logout') 
-  - Implemented the client’s async architecture to enable non-blocking input, concurrent message handling and responsive UI
-  - Built the async client architecture using tokio, including non-blocking input, concurrent messaging and a responsive UI 
+  - Implemented the client’s async architecture to enable non-blocking input, concurrent message handling and responsive UI with tokio
   - Implemented WebSockets on the client-side for real-time messaging, including  connection setup, sender/reciever stream management, async messaging, and system events (kicks and room deletions)
   - Built all HTTP interactions on the client-side for login, sign up, room creation, joining rooms, and requesting active users
-  - Implemented client workflows and application states (logged-out, in lobby and in chatroom) 
+  - Implemented client workflows and application states (logged-out, in lobby and in chatroom) with corresponding commands and UIs
   - Implemented server response handling via HTTP and WebSockets to format and display all messages, updates and errors from the server.
   - Added UI improvements such as standardized colored output and a pager-enabled help menu with dynamic color changes based on the user’s current state (logged out, in lobby, in chatroom)
-  -Added secure input handling by masking password fields with asterisks to protect passwords
+  - Added secure input handling by masking password fields with asterisks to protect passwords
 
 __Mohamad__: Responsible for designing and implementing the following server logic:
 The message protocol to be shared across the server and client
