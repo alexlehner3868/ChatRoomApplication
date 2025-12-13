@@ -256,9 +256,10 @@ impl ChatClient {
         }
 
         // Close WS
-        if let Some(mut sender) = self.ws_sender.take() 
-            && let Err(e) = sender.close().await {
-                error(&format!("Failed to close WebSocket: {}", e));
+        if let Some(mut sender) = self.ws_sender.take()
+            && let Err(e) = sender.close().await
+        {
+            error(&format!("Failed to close WebSocket: {}", e));
         }
 
         // Update client state

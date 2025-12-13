@@ -51,7 +51,6 @@ pub struct DeleteRoomRequest {
     pub room_id: String,
 }
 
-
 // doesnt need body as it will pull the user_id from the token attached to http request
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ListRoomsRequest {
