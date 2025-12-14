@@ -317,23 +317,24 @@ In conclusion, while building a project that we are all very proud of, we streng
   - Added secure input handling by masking password fields with asterisks to protect passwords
 
 __Mohamad__: Responsible for designing and implementing the following server logic:
-The message protocol to be shared across the server and client
-The concurrent in-memory state to keep track of active session data using `Arc<Mutex<>>`:
-Users and the room they are connected to
-Rooms with the owner and current live members
-Isolated tokio broadcast channel per room to ensure all intended users with live WebSocket connections to a room receive messages
-The HTTP API routes/logic for:
-`/logout`: Clear in-memory session data
-`/create_room`: Create new room
-`/join_room`: Join room
-`/delete_room`: Remove room (Owner only)
-`/all_rooms`: List all rooms (In-memory portion)
-`/list_room_users`: Get active users
-The  HTTP API route/logic to upgrade the HTTP to a WebSocket connection: `/ws`
-Processing concurrent WebSocket messages:
-Sending text messages
-Owner kicking a user from a room
-Leaving a room (Owner only)
++ The message protocol to be shared across the server and client
++ The concurrent in-memory state to keep track of active session data using `Arc<Mutex<>>`:
+	+ Users and the room they are connected to
+	+ Rooms with the owner and current live members
+	+ Isolated tokio broadcast channel per room to ensure all intended users with live WebSocket connections to a room receive messages
++ The HTTP API routes/logic for:
+	+ `/logout`: Clear in-memory session data
+	+ `/create_room`: Create new room
+	+ `/join_room`: Join room
+	+ `/delete_room`: Remove room (Owner only)
+	+ `/all_rooms`: List all rooms (In-memory portion)
+	+ `/list_room_users`: Get active users
++ The  HTTP API route/logic to upgrade the HTTP to a WebSocket connection: `/ws`
++ Processing concurrent WebSocket messages:
+	+ Sending text messages
+	+ Owner kicking a user from a room
+	+ Leaving a room (Owner only)
+	+ User joing a room 
 + Broadcasting messages received through WebSocket connection to broadcast channel subscribers
 
 
