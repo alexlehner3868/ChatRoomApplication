@@ -313,6 +313,7 @@ In conclusion, while building a project that we are all very proud of, we streng
   - Built all HTTP interactions on the client-side for login, sign up, room creation, joining rooms, and requesting active users
   - Implemented client workflows and application states (logged-out, in lobby and in chatroom) with corresponding commands and UIs
   - Implemented server response handling via HTTP and WebSockets to format and display all messages, updates and errors from the server.
+  - Supported kick and delete room functionality to transfer users from chat room to lobby. 
   - Added UI improvements such as standardized colored output and a pager-enabled help menu with dynamic color changes based on the user’s current state (logged out, in lobby, in chatroom)
   - Added secure input handling by masking password fields with asterisks to protect passwords
 
