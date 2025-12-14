@@ -244,7 +244,7 @@ To quit the program:
 This section describes how to set up the chatroom, which includes the server and the client. 
 
 ### Prerequisites
-*Note* The application runs on Linux and MacOS. If you have a Windows computer, please use Windows WSL.
+**Note:** The application runs on Linux and MacOS. If you have a Windows computer, please use Windows WSL.
 
 Ensure that the following prerequisites are installed:
   + Rust
@@ -269,7 +269,9 @@ The `.env` file contains two important environment variables:
  - `JWT_SECRET=`
 	 - This is the **secret key used to sign and verify JWT authentication tokens**.
 
-The `.env` file was provided directly to the Professor and TA team via email (sent by Mahmoud Anklis, mahmoud.anklis@mail.utoronto.ca), as it cannot be committed to GitHub without compromising application security. Exposing these secrets would allow unauthorized parties to generate valid tokens.
+The `.env` file was provided directly to the Professor via email (sent by Mahmoud Anklis, mahmoud.anklis@mail.utoronto.ca), as it cannot be committed to GitHub without compromising application security. Exposing these secrets would allow unauthorized parties to generate valid tokens. 
+
+**Note:** The name of the `.env` file may be altered when sent via email. If that occurs, rename the file by removing the name before the dot and keeping it strictly as `.env`
 
 Run the server by navigating to *ChatRoomApplicationServer* in the project directory and run:
 ```
